@@ -126,6 +126,11 @@ _GRID_KEY_STRIDE = 1 << 21
 # GPU排他ロック（複数スレッドの同時GPU転送によるOOMを防止）
 _GPU_LOCK = threading.Lock()
 
+# フェーズ2 GPU: 1フレームの候補点を固定サイズのバッチで変換・クリップする。
+# これによりピークVRAMを「候補点数」から切り離し、常駐点群サイズや軌跡長に
+# 依存しない上限に抑える（変換行列積の一時テンソルもバッチ幅で頭打ちになる）。
+GPU_PHASE2_BATCH = 2_000_000
+
 
 def parse_mapping_pose(pose_path: Path) -> Tuple[Dict[int, np.ndarray], Dict[int, np.ndarray], Dict[str, int]]:
     """mapping_pose.txt を解析し、回転行列・並進ベクトル・タイムスタンプマッピングを返す。
@@ -784,24 +789,36 @@ def _phase2_frame_gpu(world_t, slices: List[Tuple[int, int]],
 
     world_t はGPU常駐のワールド座標テンソル。スライス参照のみで近傍点を
     取り出すため、フレーム毎のCPU→GPU転送は発生しない。
+
+    候補点はGPU_PHASE2_BATCH点ずつの固定バッチで変換・クリップする。
+    world_t[bstart:bend] は連続ビュー（コピーなし）なので、ピークVRAMは
+    「バッチ幅 × 一時テンソル数」で頭打ちになり、候補点数（=軌跡長）に
+    依存しない。クリップ後の範囲内点のみを蓄積するため、蓄積量はPC_RANGE
+    体積分に限定される。
     """
     device = world_t.device
     combined_offset = (cur_rot.T @ cur_trans.reshape(3, 1)).flatten().astype(np.float32)
     cur_rot_t = torch.from_numpy(np.ascontiguousarray(cur_rot)).to(device)
     offset_t = torch.from_numpy(combined_offset).to(device)
 
-    cand = torch.cat([world_t[s:e] for s, e in slices], dim=0)
-    pc_frame = cand @ cur_rot_t - offset_t
-    del cand
+    kept = []
+    for s, e in slices:
+        for bstart in range(s, e, GPU_PHASE2_BATCH):
+            bend = min(bstart + GPU_PHASE2_BATCH, e)
+            pc_frame = world_t[bstart:bend] @ cur_rot_t - offset_t
+            mask = ((pc_frame[:, 0] > PC_RANGE[0]) & (pc_frame[:, 0] < PC_RANGE[3]) &
+                    (pc_frame[:, 1] > PC_RANGE[1]) & (pc_frame[:, 1] < PC_RANGE[4]) &
+                    (pc_frame[:, 2] > PC_RANGE[2]) & (pc_frame[:, 2] < PC_RANGE[5]))
+            sub = pc_frame[mask]
+            if sub.shape[0] > 0:
+                kept.append(sub)
+            del pc_frame, mask
 
-    mask = ((pc_frame[:, 0] > PC_RANGE[0]) & (pc_frame[:, 0] < PC_RANGE[3]) &
-            (pc_frame[:, 1] > PC_RANGE[1]) & (pc_frame[:, 1] < PC_RANGE[4]) &
-            (pc_frame[:, 2] > PC_RANGE[2]) & (pc_frame[:, 2] < PC_RANGE[5]))
-    clipped = pc_frame[mask]
-    del pc_frame, mask
-
-    if clipped.shape[0] == 0:
+    if not kept:
         return []
+
+    clipped = kept[0] if len(kept) == 1 else torch.cat(kept, dim=0)
+    del kept
 
     if obj_pts is not None and obj_pts.shape[0] > 0:
         obj_t = torch.from_numpy(obj_pts).to(device)
@@ -1153,20 +1170,37 @@ def generate_dense_pcd_for_bag(bag_dir: Path,
     logger.info(f"空間グリッド索引構築完了: {cell_starts.shape[0]:,} セル "
                 f"(セルサイズ {GRID_CELL_SIZE:.0f}m, 検索半径 {PREFILTER_RADIUS:.1f}m)")
 
-    # GPU使用判定: VRAMに収まるならワールド点群を1回だけGPUへ常駐転送
+    # GPU使用判定: VRAMに収まるならワールド点群を1回だけGPUへ常駐転送。
+    # 判定は「常駐(W) + フレーム毎の作業領域」を空きVRAMの80%以内に収めること。
+    # 作業領域はバッチ処理でO(バッチ幅)に有界化済みだが、クリップ後の範囲内点＋
+    # near/farボクセルダウンサンプリングの一時テンソル（キー・ソート等で入力の
+    # 数倍）を安全側に見積もる。バッチ変換の一時領域(約B点×48B)と、PC_RANGE内に
+    # 入りうる点群のダウンサンプル作業(点あたり約40B)を合算した固定ヘッドルーム。
     world_t = None
     if HAS_TORCH and DEVICE.type == 'cuda':
         try:
             vram_free = torch.cuda.mem_get_info(0)[0]
-            # 常駐分 + フレーム毎の作業領域（候補点の変換・マスク）の余裕をみる
-            if world_pts.nbytes * 2 < vram_free * 0.8:
+            batch_work = GPU_PHASE2_BATCH * 48  # バッチ変換・マスクの一時領域
+            # PC_RANGE内に入りうる最大点数の粗い上界（近傍セル群の点数）を
+            # ダウンサンプル作業係数40Bで見積もる。過大にならないよう常駐量で頭打ち。
+            ds_work = min(world_pts.nbytes * (40 / 12), world_pts.nbytes)
+            headroom = batch_work + ds_work
+            if world_pts.nbytes + headroom < vram_free * 0.8:
                 world_t = torch.from_numpy(world_pts).to(DEVICE)
-                logger.info(f"ワールド点群をGPUへ常駐転送 (~{ram_mb:.1f} MB)")
+                logger.info(f"ワールド点群をGPUへ常駐転送 (~{ram_mb:.1f} MB, "
+                            f"作業領域見積 ~{headroom/1024/1024:.0f} MB)")
             else:
-                logger.warning(f"VRAM不足（空き{vram_free/1024/1024:.0f}MB）→ CPUで実行")
+                logger.warning(
+                    f"VRAM不足（空き{vram_free/1024/1024:.0f}MB < "
+                    f"必要{(world_pts.nbytes + headroom)/1024/1024:.0f}MB）→ CPUで実行")
         except Exception as e:
             logger.warning(f"GPU常駐転送失敗 → CPUで実行: {e}")
             world_t = None
+
+    # OOMサーキットブレーカー: GPUフォールバックが連続したら常駐テンソルを解放して
+    # 以降は完全にCPUで処理する（「毎フレームGPU試行→OOM」のスラッシングを防止）。
+    consecutive_oom = 0
+    OOM_GIVEUP_THRESHOLD = 3
 
     for valid_frame_num in tqdm(valid_indices, desc="Phase2 output"):
         frame_idx = valid_frame_num - 1  # 1-indexed → 0-indexed
@@ -1207,11 +1241,23 @@ def generate_dense_pcd_for_bag(bag_dir: Path,
                 try:
                     results = _phase2_frame_gpu(world_t, slices, cur_rot, cur_trans, obj_pts)
                     done = True
+                    consecutive_oom = 0
                 except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
                     if 'out of memory' in str(e).lower() or 'CUDA' in str(e):
-                        logger.warning(f"Phase2 GPU OOM (frame {valid_frame_num}) → CPUフォールバック")
+                        consecutive_oom += 1
+                        logger.warning(f"Phase2 GPU OOM (frame {valid_frame_num}, "
+                                       f"連続{consecutive_oom}回) → CPUフォールバック")
                         torch.cuda.empty_cache()
                         gc.collect()
+                        # 連続OOMが閾値に達したらGPU常駐を解放し以降CPU専用に切替
+                        if consecutive_oom >= OOM_GIVEUP_THRESHOLD:
+                            logger.warning(
+                                f"GPU OOMが{consecutive_oom}回連続 → 常駐テンソルを解放し"
+                                f"以降はCPUで処理")
+                            del world_t
+                            world_t = None
+                            torch.cuda.empty_cache()
+                            gc.collect()
                     else:
                         raise
             if not done:
