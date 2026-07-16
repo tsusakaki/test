@@ -73,6 +73,10 @@ MAX_DEPTH_M = 250.0
 # 最大ピクセル値 (16bit)
 MAX_PIXEL_VALUE = int(MAX_DEPTH_M * DEPTH_SCALE)  # 64000
 
+# PNG圧縮レベル（0-9）。深度マップはノイズが多く高圧縮の効果が薄い一方、
+# レベルを上げるとエンコードが大幅に遅くなるため低めに固定する
+PNG_COMPRESSION_LEVEL = 1
+
 # undis_single.py互換 歪みテーブル（cam-FW-undis投影用）
 DISTORTION_TABLE_UNDIS = [
     [0, 0.0000], [0.089, 0.0890], [0.178, 0.1781], [0.267, 0.2673],
@@ -140,6 +144,8 @@ def parse_args():
                         help='Dense補間を行わない（スパースDepthのみ）')
     parser.add_argument('--bag-dirs', type=str, default=None,
                         help='bagディレクトリのカンマ区切りリスト（各bag_dir/result/local_pcdbin/を優先参照）')
+    parser.add_argument('--workers', type=int, default=None,
+                        help='並列ワーカー数（デフォルト: CPU数-1、上限8）')
     return parser.parse_args()
 
 
@@ -355,15 +361,12 @@ def _parse_pcd_fast(pcd_path: Path) -> Optional[np.ndarray]:
                 if not remaining:
                     return None
 
-                # numpy.fromstringの代わりにnp.loadtxtよりも高速な方法
-                # 全行をデコードしてnp.fromstringで一括変換
                 text = remaining.decode('ascii', errors='ignore')
                 # 全フィールド数を計算
                 n_fields = len(fields)
                 try:
-                    all_values = np.fromstring(
-                        text, dtype=np.float32, sep=' '
-                    )
+                    # np.fromstringはNumPy 2.0で削除されたためsplit+arrayで一括変換
+                    all_values = np.array(text.split(), dtype=np.float32)
                     # reshapeできるか確認
                     if all_values.size >= n_points * n_fields:
                         all_values = all_values[:n_points * n_fields].reshape(n_points, n_fields)
@@ -434,7 +437,8 @@ def project_lidar_to_depth(
     src_camera_matrix: np.ndarray = None,
     src_dist_coeff: np.ndarray = None,
     undis_remap_func=None,
-    camera_model: str = "pinhole"
+    camera_model: str = "pinhole",
+    skip_validation: bool = False
 ) -> np.ndarray:
     """LiDAR点群をカメラに投影し、スパースDepthマップを生成する
 
@@ -453,15 +457,18 @@ def project_lidar_to_depth(
         src_dist_coeff: 未使用（互換性のため残す）
         undis_remap_func: 未使用（互換性のため残す、calib_tool方式では不要）
         camera_model: "pinhole" or "fisheye"
+        skip_validation: Trueの場合、NaN/Inf除去とfloat32変換をスキップする
+            （呼び出し側で前処理済みの点群を渡す場合。カメラ数分の重複処理を回避）
 
     戻り値:
         (img_h, img_w) のfloat32配列。値は深度 [m]。投影なし箇所は0
     """
-    n_pts = points.shape[0]
-
-    # NaN/Inf点を除去
-    valid_pts_mask = ~(np.isnan(points).any(axis=1) | np.isinf(points).any(axis=1))
-    points_clean = points[valid_pts_mask]
+    if skip_validation:
+        points_clean = points
+    else:
+        # NaN/Inf点を除去
+        valid_pts_mask = ~(np.isnan(points).any(axis=1) | np.isinf(points).any(axis=1))
+        points_clean = points[valid_pts_mask]
     n_pts = points_clean.shape[0]
 
     if n_pts == 0:
@@ -472,7 +479,8 @@ def project_lidar_to_depth(
     tvec = RT[:3, 3]
 
     # LiDAR → カメラ座標系（float32で計算: 精度十分かつ高速）
-    pts_3d = points_clean.astype(np.float32)
+    # asarray: 既にfloat32ならコピーを作らない
+    pts_3d = np.asarray(points_clean, dtype=np.float32)
     R_f32 = R.astype(np.float32)
     tvec_f32 = tvec.astype(np.float32).reshape(1, 3)
     pts_cam = (R_f32 @ pts_3d.T).T + tvec_f32  # (N, 3)
@@ -536,23 +544,29 @@ def project_lidar_to_depth(
         x = pts_cam[:, 0] / z_valid
         y = pts_cam[:, 1] / z_valid
 
-        r2 = x**2 + y**2
-        r4 = r2**2
-        r6 = r2**3
+        if k1 == 0 and k2 == 0 and p1 == 0 and p2 == 0 \
+                and k3 == 0 and k4 == 0 and k5 == 0 and k6 == 0:
+            # 歪みなし（cam-FW-undis等）: 歪み計算を丸ごと省略した直接投影
+            u = fx * x + cx
+            v = fy * y + cy
+        else:
+            r2 = x**2 + y**2
+            r4 = r2**2
+            r6 = r2**3
 
-        # Rational model 歪み適用
-        radial_num = 1 + k1*r2 + k2*r4 + k3*r6
-        radial_den = 1 + k4*r2 + k5*r4 + k6*r6
-        radial_den = np.where(np.abs(radial_den) < 1e-10, 1.0, radial_den)
-        radial = radial_num / radial_den
+            # Rational model 歪み適用
+            radial_num = 1 + k1*r2 + k2*r4 + k3*r6
+            radial_den = 1 + k4*r2 + k5*r4 + k6*r6
+            radial_den = np.where(np.abs(radial_den) < 1e-10, 1.0, radial_den)
+            radial = radial_num / radial_den
 
-        # 接線歪み
-        x_d = x * radial + 2*p1*x*y + p2*(r2 + 2*x**2)
-        y_d = y * radial + p1*(r2 + 2*y**2) + 2*p2*x*y
+            # 接線歪み
+            x_d = x * radial + 2*p1*x*y + p2*(r2 + 2*x**2)
+            y_d = y * radial + p1*(r2 + 2*y**2) + 2*p2*x*y
 
-        # 内部パラメータ適用
-        u = fx * x_d + cx
-        v = fy * y_d + cy
+            # 内部パラメータ適用
+            u = fx * x_d + cx
+            v = fy * y_d + cy
 
     # 整数化
     u_int = np.round(u).astype(np.int32)
@@ -1013,6 +1027,15 @@ def generate_depth_for_one_frame(
     if points is None or points.shape[0] == 0:
         return {}
 
+    # NaN/Inf除去とfloat32変換をここで1回だけ行う
+    # （project_lidar_to_depthにカメラごとに重複させない）
+    valid_mask = np.isfinite(points).all(axis=1)
+    if not valid_mask.all():
+        points = points[valid_mask]
+    points = np.ascontiguousarray(points, dtype=np.float32)
+    if points.shape[0] == 0:
+        return {}
+
     result: Dict[str, np.ndarray] = {}
 
     for cam_full, cam_param in camera_params.items():
@@ -1042,7 +1065,8 @@ def generate_depth_for_one_frame(
 
         sparse_depth = project_lidar_to_depth(
             points, RT, fx, fy, cx_val, cy_val, img_w, img_h,
-            dist_coeff, None, None, undis_remap_func, camera_model
+            dist_coeff, None, None, undis_remap_func, camera_model,
+            skip_validation=True
         )
 
         # 投影点が極端に少ない場合はスキップ
@@ -1065,48 +1089,77 @@ def generate_depth_for_one_frame(
 
 # --- ProcessPoolExecutor用のワーカー関数（モジュールレベル、pickle可能） ---
 
-def _process_one_frame_worker(
-    pcd_path: Path,
+# ワーカープロセス内の共有コンテキスト（initializerで1回だけ設定）
+# タスクごとにカメラパラメータやフレームマップをpickle転送するコストを排除する
+_WORKER_CTX: dict = {}
+
+
+def _worker_init(
     camera_params: Dict[str, dict],
     target_cameras: List[str],
     dense: bool,
-    target_pcd_frame_nums: set,
     cam_frame_map: Dict[str, Dict[int, str]],
-    cam_frame_names: Dict[str, List[str]]
-) -> List[Tuple[str, str, np.ndarray]]:
-    """1フレームを処理し、(cam_short, frame_name, depth_img)のリストを返す
+    depth_dirs: Dict[str, str]
+) -> None:
+    """ProcessPoolExecutorの各ワーカー起動時に1回だけ呼ばれる初期化関数"""
+    _WORKER_CTX['camera_params'] = camera_params
+    _WORKER_CTX['target_cameras'] = target_cameras
+    _WORKER_CTX['dense'] = dense
+    _WORKER_CTX['cam_frame_map'] = cam_frame_map
+    _WORKER_CTX['depth_dirs'] = {k: Path(v) for k, v in depth_dirs.items()}
 
-    ProcessPoolExecutor から呼ばれるため、モジュールレベルに配置。
-    クロージャを使わず、全データを引数で受け取る。
+
+def _process_one_frame_worker(pcd_path: Path) -> List[Tuple[str, str]]:
+    """1フレームを処理し、(cam_short, status)のリストを返す
+
+    status: 'written'（新規生成） or 'skipped'（既存ファイルのためスキップ）
+
+    高速化ポイント:
+      - 出力ファイルの存在チェックをPCD読込み・投影の前に行い、
+        全出力が既存ならフレーム全体を即スキップ（再実行時に大幅短縮）
+      - PNGエンコード/保存をワーカー内で行い、深度画像（数MB/枚）を
+        親プロセスへpickle転送するコストと親側の直列書き込みを排除
     """
+    ctx = _WORKER_CTX
     try:
         pcd_frame_num = int(pcd_path.stem)
     except ValueError:
         return []
 
-    # 対象フレームでなければスキップ（高速フィルタ）
-    if target_pcd_frame_nums and pcd_frame_num not in target_pcd_frame_nums:
-        return []
+    # 出力が必要なカメラを先に確定（既存ファイルは計算前にスキップ）
+    annotation_frame_num = pcd_frame_num + 1
+    results: List[Tuple[str, str]] = []
+    pending: Dict[str, Path] = {}  # {cam_short: 出力パス}
+    for cam_short, frame_map in ctx['cam_frame_map'].items():
+        frame_name = frame_map.get(annotation_frame_num)
+        if frame_name is None:
+            continue
+        out_path = ctx['depth_dirs'][cam_short] / f"{frame_name}.png"
+        if out_path.exists():
+            # 既存ファイルがあればスキップ（冪等性）
+            results.append((cam_short, 'skipped'))
+        else:
+            pending[cam_short] = out_path
 
-    # Depthマップ生成
+    if not pending:
+        return results
+
+    # 必要なカメラだけに絞ってDepthマップ生成
+    needed_cameras = [
+        cam_full for cam_full in ctx['target_cameras']
+        if CAM_FULL_TO_SHORT.get(cam_full) in pending
+    ]
     depth_maps = generate_depth_for_one_frame(
-        pcd_path, camera_params, target_cameras, dense
+        pcd_path, ctx['camera_params'], needed_cameras, ctx['dense']
     )
 
-    results = []
+    png_params = [cv2.IMWRITE_PNG_COMPRESSION, PNG_COMPRESSION_LEVEL]
     for cam_short, depth_img in depth_maps.items():
-        # フレーム名の決定
-        frame_name = None
-        if cam_short in cam_frame_map:
-            annotation_frame_num = pcd_frame_num + 1
-            frame_name = cam_frame_map[cam_short].get(annotation_frame_num)
-            if frame_name is None:
-                continue
-        elif cam_short in cam_frame_names:
+        out_path = pending.get(cam_short)
+        if out_path is None:
             continue
-        else:
-            continue
-        results.append((cam_short, frame_name, depth_img))
+        cv2_imwrite(out_path, depth_img, png_params)
+        results.append((cam_short, 'written'))
     return results
 
 
@@ -1115,7 +1168,8 @@ def generate_depth_maps_for_dataset(
     od_output_dir: Path,
     camera_param_folder: Path,
     target_cameras: Optional[List[str]] = None,
-    dense: bool = True
+    dense: bool = True,
+    num_workers: Optional[int] = None
 ) -> Dict[str, int]:
     """ODデータセット用のDepth_mapsを生成する（run_from_csv.pyから呼び出す公開関数）
 
@@ -1136,6 +1190,7 @@ def generate_depth_maps_for_dataset(
         camera_param_folder: カメラパラメータJSONフォルダ
         target_cameras: 対象カメラリスト
         dense: Dense補間を行うか
+        num_workers: 並列ワーカー数（Noneで自動: CPU数-1、上限8）
 
     戻り値:
         {カメラ短縮名: 生成ファイル数}
@@ -1192,6 +1247,21 @@ def generate_depth_maps_for_dataset(
             # PCDフレーム番号 = Annotationフレーム番号 - 1
             target_pcd_frame_nums.add(fnum - 1)
 
+    # 出力ディレクトリを事前作成（ワーカー内でのmkdir呼び出しを排除）
+    depth_dirs: Dict[str, str] = {}
+    for cam_short in cam_frame_map.keys():
+        depth_dir = od_output_dir / f"data_3d_{cam_short}" / 'Depth_maps'
+        depth_dir.mkdir(parents=True, exist_ok=True)
+        depth_dirs[cam_short] = str(depth_dir)
+
+    # ワーカー数: デフォルトはCPU数-1（上限8）
+    # PNG保存もワーカー内で行うため、旧実装の4固定より多めが有効
+    if num_workers is None:
+        num_workers = min(8, max(1, (os.cpu_count() or 4) - 1))
+
+    written_count = 0
+    skipped_count = 0
+
     for bag_dir in bag_dirs:
         # PCDフォルダを探す（local_pcdbin優先、なければlocal_motion_pcdbin）
         pcdbin_dir = None
@@ -1214,13 +1284,22 @@ def generate_depth_maps_for_dataset(
             logger.warning(f"PCDファイルなし（スキップ）: {pcdbin_dir}")
             continue
 
-        logger.info(f"処理中: {bag_dir.name} ({len(pcd_files)} frames)")
+        # 対象フレームのみに事前フィルタ（不要フレームのタスク投入自体を回避）
+        if target_pcd_frame_nums:
+            pcd_files = [
+                p for p in pcd_files
+                if p.stem.isdigit() and int(p.stem) in target_pcd_frame_nums
+            ]
+            if not pcd_files:
+                logger.info(f"対象フレームなし（スキップ）: {bag_dir.name}")
+                continue
+
+        logger.info(f"処理中: {bag_dir.name} ({len(pcd_files)} frames, "
+                    f"{num_workers} workers)")
 
         # --- フレーム並列処理（ProcessPoolExecutor: GIL制約なし） ---
-        # ワーカー数: CPU数の半分程度（メモリ使用量を抑制しつつ並列化）
-        num_workers = min(4, max(1, os.cpu_count() // 2))
-
-        # ProcessPoolExecutorに渡すための引数リスト構築
+        # カメラパラメータ等の共有データはinitializerで各ワーカーに1回だけ転送し、
+        # タスクごとのpickleコストを排除する
         # (pickle可能なデータのみ: undis_remap_func=Noneを明示)
         camera_params_picklable = {}
         for cam_name, param in camera_params.items():
@@ -1228,19 +1307,16 @@ def generate_depth_maps_for_dataset(
             p['undis_remap_func'] = None  # 関数オブジェクトはpickle不可
             camera_params_picklable[cam_name] = p
 
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
-            futures = {}
-            for pcd_path in pcd_files:
-                futures[executor.submit(
-                    _process_one_frame_worker,
-                    pcd_path,
-                    camera_params_picklable,
-                    target_cameras,
-                    dense,
-                    target_pcd_frame_nums,
-                    cam_frame_map,
-                    cam_frame_names
-                )] = pcd_path
+        with ProcessPoolExecutor(
+            max_workers=num_workers,
+            initializer=_worker_init,
+            initargs=(camera_params_picklable, target_cameras, dense,
+                      cam_frame_map, depth_dirs)
+        ) as executor:
+            futures = {
+                executor.submit(_process_one_frame_worker, pcd_path): pcd_path
+                for pcd_path in pcd_files
+            }
 
             for future in tqdm(as_completed(futures), total=len(futures),
                                desc=f"  Depth {bag_dir.name}", leave=False):
@@ -1249,19 +1325,15 @@ def generate_depth_maps_for_dataset(
                 except Exception as e:
                     logger.warning(f"フレーム処理エラー: {e}")
                     continue
-                for cam_short, frame_name, depth_img in frame_results:
-                    # 出力先: <od_output_dir>/data_3d_<cam_short>/Depth_maps/
-                    depth_dir = od_output_dir / f"data_3d_{cam_short}" / 'Depth_maps'
-                    depth_dir.mkdir(parents=True, exist_ok=True)
-
-                    out_path = depth_dir / f"{frame_name}.png"
-                    # 既存ファイルがあればスキップ（冪等性）
-                    if not out_path.exists():
-                        cv2_imwrite(out_path, depth_img)
-
+                for cam_short, status in frame_results:
                     stats[cam_short] = stats.get(cam_short, 0) + 1
+                    if status == 'written':
+                        written_count += 1
+                    else:
+                        skipped_count += 1
 
-    logger.info("Depth_maps生成完了:")
+    logger.info(f"Depth_maps生成完了: 新規 {written_count} / "
+                f"既存スキップ {skipped_count}")
     for cam_short, count in sorted(stats.items()):
         logger.info(f"  data_3d_{cam_short}: {count} files")
 
@@ -1326,7 +1398,8 @@ def main():
         od_output_dir=output_dir,
         camera_param_folder=cam_param_dir,
         target_cameras=target_cameras,
-        dense=args.dense
+        dense=args.dense,
+        num_workers=args.workers
     )
 
     # サマリー
