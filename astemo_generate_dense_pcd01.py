@@ -24,7 +24,10 @@ NRACapPairパイプラインのresult/フォルダ構造から高密度点群(de
   半径内（約125m）のセルの点だけを変換・クリップする（O(全点×フレーム数)
   → O(近傍点×フレーム数)）。
 - フェーズ2 GPU: ワールド座標点群をGPUに1回だけ常駐転送し、フレーム毎の
-  CPU→GPU全点転送を排除。
+  CPU→GPU全点転送を排除。候補点は固定バッチで変換してピークVRAMを有界化。
+  ダウンサンプリングのピークVRAMを事前見積りし、密集シーン等で収まらない
+  場合は最初からCPUで実行。CUDA OOM発生時はコンテキスト破損に備えて後始末を
+  握りつぶし、以降全フレームをCPUに切替（タスクを落とさず必ず出力を生成）。
 - _voxel_down_sample_cpu: np.add.at → np.bincount（5〜10倍高速）。
 - parse_gt_csv: 行毎dict構築を廃止し、タイムスタンプ毎の(M,7) BBox配列を
   事前計算して返す（z底面シフト・拡大係数適用済み）。キャッシュはv3。
@@ -1170,37 +1173,64 @@ def generate_dense_pcd_for_bag(bag_dir: Path,
     logger.info(f"空間グリッド索引構築完了: {cell_starts.shape[0]:,} セル "
                 f"(セルサイズ {GRID_CELL_SIZE:.0f}m, 検索半径 {PREFILTER_RADIUS:.1f}m)")
 
-    # GPU使用判定: VRAMに収まるならワールド点群を1回だけGPUへ常駐転送。
-    # 判定は「常駐(W) + フレーム毎の作業領域」を空きVRAMの80%以内に収めること。
-    # 作業領域はバッチ処理でO(バッチ幅)に有界化済みだが、クリップ後の範囲内点＋
-    # near/farボクセルダウンサンプリングの一時テンソル（キー・ソート等で入力の
-    # 数倍）を安全側に見積もる。バッチ変換の一時領域(約B点×48B)と、PC_RANGE内に
-    # 入りうる点群のダウンサンプル作業(点あたり約40B)を合算した固定ヘッドルーム。
+    # 各出力フレームの近傍スライスを事前計算し、フレーム毎の最大候補点数を求める。
+    # （プレフィルタが効かない密集シーンでは候補点数が全点数に近づき、GPUの
+    # 　ダウンサンプリング一時テンソルが数GBに膨れてOOMするため、GPU可否は
+    # 　この最大候補点数を基準に判定する。スライス自体もループで再利用する。）
+    frame_slices = {}
+    max_cand = 0
+    for valid_frame_num in valid_indices:
+        frame_idx = valid_frame_num - 1
+        if frame_idx not in pcd_files:
+            continue
+        pose_idx = timestamp_idx_mapping[pcd_files[frame_idx]['timestamp']]
+        cur_trans = translations[pose_idx]
+        sl = _select_grid_slices(cur_trans[:2], PREFILTER_RADIUS,
+                                 cell_starts, cell_ends, cell_x, cell_y)
+        frame_slices[valid_frame_num] = sl
+        cand = sum(e - s for s, e in sl)
+        if cand > max_cand:
+            max_cand = cand
+    logger.info(f"プレフィルタ後の最大候補点数: {max_cand:,} 点 "
+                f"（全点数比 {max_cand / max(1, world_pts.shape[0]):.0%}）")
+
+    # GPU使用判定（ダウンサンプリングのピークVRAMを考慮した保守的判定）:
+    #   ピークVRAM ≈ 常駐(W) + バッチ変換の一時領域 + 範囲内点×ダウンサンプル係数
+    # ダウンサンプル係数は voxel_indices(int64×3)+keys+unique/sort作業+inverse 等で
+    # 入力点あたり約80B。範囲内点数は最大候補点数で上界を取る。これを空きVRAMの
+    # 60%以内に収める場合のみGPUを使う（密集シーンでは自動的にCPUを選択）。
+    # 一度でもCUDA OOMが起きるとコンテキストが復帰不能になり得るため、
+    # 「載せてから落ちる」のではなく「危なければ最初から載せない」方針。
+    DS_BYTES_PER_POINT = 80
     world_t = None
     if HAS_TORCH and DEVICE.type == 'cuda':
         try:
             vram_free = torch.cuda.mem_get_info(0)[0]
-            batch_work = GPU_PHASE2_BATCH * 48  # バッチ変換・マスクの一時領域
-            # PC_RANGE内に入りうる最大点数の粗い上界（近傍セル群の点数）を
-            # ダウンサンプル作業係数40Bで見積もる。過大にならないよう常駐量で頭打ち。
-            ds_work = min(world_pts.nbytes * (40 / 12), world_pts.nbytes)
-            headroom = batch_work + ds_work
-            if world_pts.nbytes + headroom < vram_free * 0.8:
+            batch_work = GPU_PHASE2_BATCH * 48
+            ds_peak = max_cand * DS_BYTES_PER_POINT
+            need = world_pts.nbytes + batch_work + ds_peak
+            if need < vram_free * 0.6:
                 world_t = torch.from_numpy(world_pts).to(DEVICE)
                 logger.info(f"ワールド点群をGPUへ常駐転送 (~{ram_mb:.1f} MB, "
-                            f"作業領域見積 ~{headroom/1024/1024:.0f} MB)")
+                            f"ピーク見積 ~{need/1024/1024:.0f} MB / "
+                            f"空き {vram_free/1024/1024:.0f} MB)")
             else:
                 logger.warning(
-                    f"VRAM不足（空き{vram_free/1024/1024:.0f}MB < "
-                    f"必要{(world_pts.nbytes + headroom)/1024/1024:.0f}MB）→ CPUで実行")
+                    f"GPUピーク見積 {need/1024/1024:.0f} MB が空きVRAMの60%"
+                    f"({vram_free*0.6/1024/1024:.0f} MB)を超過 → CPUで実行"
+                    f"（密集シーンのため）")
         except Exception as e:
-            logger.warning(f"GPU常駐転送失敗 → CPUで実行: {e}")
+            logger.warning(f"GPU可否判定に失敗 → CPUで実行: {e}")
             world_t = None
 
-    # OOMサーキットブレーカー: GPUフォールバックが連続したら常駐テンソルを解放して
-    # 以降は完全にCPUで処理する（「毎フレームGPU試行→OOM」のスラッシングを防止）。
-    consecutive_oom = 0
-    OOM_GIVEUP_THRESHOLD = 3
+    def _safe_cuda_cleanup():
+        """OOM後のCUDA後始末。empty_cache自体が壊れたコンテキストで二次例外を
+        投げ得るため、握りつぶして呼び出し側に伝播させない。"""
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+        gc.collect()
 
     for valid_frame_num in tqdm(valid_indices, desc="Phase2 output"):
         frame_idx = valid_frame_num - 1  # 1-indexed → 0-indexed
@@ -1223,9 +1253,8 @@ def generate_dense_pcd_for_bag(bag_dir: Path,
         cur_rot = rotations[pose_idx]
         cur_trans = translations[pose_idx]
 
-        # 空間プレフィルタ: PC_RANGEに入りうる近傍セルのスライスだけを対象にする
-        slices = _select_grid_slices(cur_trans[:2], PREFILTER_RADIUS,
-                                     cell_starts, cell_ends, cell_x, cell_y)
+        # 事前計算した近傍スライスを再利用
+        slices = frame_slices.get(valid_frame_num, [])
 
         # 動的物体点（フレーム座標系のまま保持していたもの）を範囲クリップ
         obj_pts = None
@@ -1238,26 +1267,22 @@ def generate_dense_pcd_for_bag(bag_dir: Path,
         if slices:
             done = False
             if world_t is not None:
+                # CUDA OOMは非同期・sticky（コンテキスト破損）になり得るため、
+                # 例外は広く捕捉し、後始末は握りつぶし、最初のOOMで即CPU専用へ切替。
+                # これによりタスクが落ちることは無く、必ず出力を生成する。
                 try:
                     results = _phase2_frame_gpu(world_t, slices, cur_rot, cur_trans, obj_pts)
                     done = True
-                    consecutive_oom = 0
-                except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
-                    if 'out of memory' in str(e).lower() or 'CUDA' in str(e):
-                        consecutive_oom += 1
-                        logger.warning(f"Phase2 GPU OOM (frame {valid_frame_num}, "
-                                       f"連続{consecutive_oom}回) → CPUフォールバック")
-                        torch.cuda.empty_cache()
-                        gc.collect()
-                        # 連続OOMが閾値に達したらGPU常駐を解放し以降CPU専用に切替
-                        if consecutive_oom >= OOM_GIVEUP_THRESHOLD:
-                            logger.warning(
-                                f"GPU OOMが{consecutive_oom}回連続 → 常駐テンソルを解放し"
-                                f"以降はCPUで処理")
-                            del world_t
-                            world_t = None
-                            torch.cuda.empty_cache()
-                            gc.collect()
+                except Exception as e:
+                    msg = str(e).lower()
+                    if 'out of memory' in msg or 'cuda' in msg:
+                        logger.warning(
+                            f"Phase2 GPU OOM/CUDAエラー (frame {valid_frame_num}) "
+                            f"→ 以降は全フレームCPUで処理: {e}")
+                        world_t = None  # 常駐参照を破棄し以降GPUを一切使わない
+                        _safe_cuda_cleanup()
+                        results = []
+                        done = False
                     else:
                         raise
             if not done:
@@ -1274,7 +1299,7 @@ def generate_dense_pcd_for_bag(bag_dir: Path,
     # GPU解放
     if world_t is not None:
         del world_t
-        torch.cuda.empty_cache()
+        _safe_cuda_cleanup()
     del world_pts
 
     # 中間ファイルクリーンアップ
