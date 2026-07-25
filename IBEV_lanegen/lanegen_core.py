@@ -831,6 +831,8 @@ def build_intensity_sigma(i_topk: np.ndarray, count: np.ndarray,
                           pool_s_cells: int = 1,
                           count_debias: bool = True,
                           weighted_background: bool = True,
+                          surface_observed: np.ndarray | None = None,
+                          empty_return_percentile: float = 5.0,
                           scale_mode: str = "local",
                           scale_d_cells: int = 60,
                           scale_s_cells: int = 100,
@@ -856,6 +858,26 @@ def build_intensity_sigma(i_topk: np.ndarray, count: np.ndarray,
         index = np.clip(cnt, 0, len(debias) - 1)
         topk = np.where(occupied, topk - debias[index], 0.0)
 
+    # 「路面は幾何的に観測できているのに反射の返りが無い」セルは、欠測では
+    # なく『暗い』という観測である。従来はこれを欠測扱いしていたため、路面
+    # からの返りが弱いクリップでは塗装セルの周囲 ±0.25〜0.80m に occupied
+    # セルが 1 つも無く、annulus 背景が取れずに bg_n<4 で捨てられていた。
+    # 実測 (clip_..._0013): 回廊の 56.5% がこの状態で、i_topk 60 の明確な
+    # 破線が 1 セルも検出できず、高反射セル全体の 25% が失われていた。
+    # 塗装だけが点として浮いている状態はむしろ最も検出しやすいので、
+    # 無返りを低反射の観測として背景に算入する。
+    known = occupied
+    empty_floor = float("nan")
+    if surface_observed is not None:
+        surface = np.asarray(surface_observed, dtype=bool)
+        dark = surface & ~occupied
+        if dark.any() and occupied.any():
+            empty_floor = float(np.percentile(topk[occupied],
+                                              empty_return_percentile))
+            topk = np.where(dark, empty_floor, topk)
+            weight = np.where(dark, 1.0, weight)
+            known = occupied | dark
+
     value, pooled_weight = pool_along_s(topk, weight, pool_s_cells)
 
     if weighted_background:
@@ -864,16 +886,24 @@ def build_intensity_sigma(i_topk: np.ndarray, count: np.ndarray,
     else:
         bg, bg_cells = annulus_background(
             value, pooled_weight > 0, inner_cells, outer_cells, axis=0)
-    bg_valid = (np.isfinite(bg) & (bg_cells >= min_bg_cells)
+    bg_valid = (known & np.isfinite(bg) & (bg_cells >= min_bg_cells)
                 & (pooled_weight >= min_weight))
     excess = np.where(bg_valid, value - np.nan_to_num(bg), 0.0
                       ).astype(np.float32)
 
+    # 散布度は「実際に返りがあったセル」だけで取る。無返りセルを含めると
+    # 分布が floor 付近に集中して MAD が小さくなり、sigma の意味が従来から
+    # ずれてしまう (実測で scale 17.0 -> 7.2、閾値 1.8 の前景率が 2.9% ->
+    # 6.9% に増える)。既存の閾値をそのまま使えるようにするため、母集団は
+    # 返りのあるセルに限る。
+    scale_mask = bg_valid & occupied if known is not occupied else bg_valid
+    if not scale_mask.any():
+        scale_mask = bg_valid
     if scale_mode == "local":
-        scale = local_robust_scale(excess, bg_valid, scale_d_cells,
+        scale = local_robust_scale(excess, scale_mask, scale_d_cells,
                                    scale_s_cells, scale_floor)
     else:
-        scale_s = row_robust_scale(excess, bg_valid, scale_smooth_cells,
+        scale_s = row_robust_scale(excess, scale_mask, scale_smooth_cells,
                                    scale_floor)
         scale = np.broadcast_to(scale_s[None, :], excess.shape)
     scale = np.maximum(np.asarray(scale, dtype=np.float32), scale_floor)
@@ -897,6 +927,10 @@ def build_intensity_sigma(i_topk: np.ndarray, count: np.ndarray,
         "scale_p10": float(np.percentile(scale, 10)),
         "scale_p90": float(np.percentile(scale, 90)),
         "bg_valid_ratio": float(bg_valid.mean()),
+        "dark_return_as_observation": bool(surface_observed is not None
+                                          and np.isfinite(empty_floor)),
+        "empty_return_floor": (float(empty_floor)
+                               if np.isfinite(empty_floor) else None),
     }
 
     return {

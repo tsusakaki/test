@@ -450,6 +450,7 @@ def build_intensity_streaming(
         "i_scale_s": scale.astype(np.float32),
         "bg_valid": bg_valid,
         "i_count_debias": evidence["count_debias_table"],
+        "_k_used": k_count.reshape(spec.nd, spec.ns),
         "frenet_ambiguous": ambiguous_count_grid > 0,
         "frenet_ambiguous_count": ambiguous_count_grid.astype(np.int32),
         "_stats": stats,

@@ -36,6 +36,60 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def _validate_dark_return_background() -> dict:
+    """無返りセルを『暗い』観測として扱うと孤立した塗装を拾えることを確認する。
+
+    合成PCDは反射強度の方がRGBBEVより密なのでこの経路を通らない。実データ
+    (IBEV.pcd が RGBBEV.pcd の 1/10 の点数) では、塗装の周囲 ±0.25〜0.80m に
+    occupied セルが 1 つも無く annulus 背景が取れないため、i_topk 60 の明確な
+    破線が 1 セルも検出できていなかった。その状況をグリッド上で再現する。
+    """
+    import lanegen_core as core
+
+    nd, ns = 120, 400
+    count = np.zeros((nd, ns), dtype=np.int32)
+    topk = np.zeros((nd, ns), dtype=np.float32)
+    # 遠くに弱い路面の返り (無返りセルに与える床値の推定元)
+    count[0:30, :] = 2
+    topk[0:30, :] = 15.0
+    # 破線: 20セルON / 30セルOFF、周囲は完全に無返り
+    on = np.zeros(ns, dtype=bool)
+    for start in range(0, ns, 50):
+        on[start:start + 20] = True
+    for row in (59, 60, 61):
+        count[row, on] = 4
+        topk[row, on] = 62.0
+
+    kwargs = dict(inner_cells=5, outer_cells=16, scale_smooth_cells=40,
+                  scale_floor=0.5, pool_s_cells=1, count_debias=False,
+                  scale_mode="local", scale_d_cells=60, scale_s_cells=100)
+    k_used = np.minimum(count, 3)
+    without = core.build_intensity_sigma(topk, count, k_used, **kwargs)
+    with_dark = core.build_intensity_sigma(
+        topk, count, k_used,
+        surface_observed=np.ones((nd, ns), dtype=bool), **kwargs)
+
+    paint = np.zeros((nd, ns), dtype=bool)
+    paint[60, on] = True
+    missed = int((without["i_sigma"][paint] >= 1.8).sum())
+    found = int((with_dark["i_sigma"][paint] >= 1.8).sum())
+    if missed != 0:
+        raise AssertionError(
+            f"欠測扱いでも検出できてしまい再現になっていない: {missed}")
+    if found < 0.9 * int(paint.sum()):
+        raise AssertionError(
+            f"無返り=暗い扱いでも塗装を拾えない: {found}/{int(paint.sum())}")
+    if not with_dark["diagnostics"]["dark_return_as_observation"]:
+        raise AssertionError("dark_return_as_observation が立っていない")
+    return {
+        "paint_cells": int(paint.sum()),
+        "detected_as_missing_data": missed,
+        "detected_as_dark_observation": found,
+        "empty_return_floor":
+            with_dark["diagnostics"]["empty_return_floor"],
+    }
+
+
 def _merge_cvat_xml(main_path: Path, review_path: Path,
                     dest: Path) -> Path:
     """本体XMLとreview XMLのshapeを1本にまとめた評価用XMLを書く。"""
@@ -464,6 +518,7 @@ def main(argv=None) -> int:
     streaming_topk_test = _validate_streaming_topk(here)
     compressed_reuse_test = _validate_compressed_reader_reuse(here, work)
     stale_lock_test = _validate_stale_lock_recovery(here, work)
+    dark_return_test = _validate_dark_return_background()
 
     py = sys.executable
     _run([py, "make_synthetic_ibev.py", "-o", str(synth)], here)
@@ -548,6 +603,7 @@ def main(argv=None) -> int:
         "streaming_batch_equivalence": streaming_batch_test,
         "parameter_aware_resume_test": parameter_resume_test,
         "stale_lock_test": stale_lock_test,
+        "dark_return_background_test": dark_return_test,
         "resume_test": {"status": state.get("status"),
                         "stage1_reused": True, "stage2_reused": True},
         "cancel_test": cancel_test,

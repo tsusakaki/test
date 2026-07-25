@@ -110,6 +110,13 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="局所散布度窓の d 方向半幅 [m]")
     g.add_argument("--intensity-scale-s", type=float, default=25.0,
                    help="局所散布度窓の s 方向半幅 [m]")
+    g.add_argument("--no-intensity-dark-return",
+                   dest="intensity_dark_return", action="store_false",
+                   help="路面が観測できているのに反射の返りが無いセルを"
+                        "『暗い』観測として扱わず、欠測扱いする (v7互換)")
+    g.set_defaults(intensity_dark_return=True)
+    g.add_argument("--intensity-empty-percentile", type=float, default=5.0,
+                   help="無返りセルに与える反射強度の分位点 [%]")
 
     g = p.add_argument_group("標高・段差")
     g.add_argument("--z-low-k", type=int, default=3,
@@ -184,6 +191,44 @@ def _projection_stats(proj: core.FrenetProjection) -> dict:
     }
 
 
+def intensity_sigma_kwargs(a: argparse.Namespace,
+                           surface_observed=None) -> dict:
+    """build_intensity_sigma に渡す引数。両経路で同じ値を使うため一箇所に置く。"""
+    return dict(
+        inner_cells=_cells(a.bg_inner, a.d_resolution),
+        outer_cells=_cells(a.bg_outer, a.d_resolution),
+        scale_smooth_cells=_cells(a.scale_smooth, a.s_resolution),
+        scale_floor=a.scale_floor,
+        pool_s_cells=_cells(a.intensity_pool_s, a.s_resolution),
+        count_debias=a.intensity_count_debias,
+        weighted_background=a.intensity_weighted_background,
+        surface_observed=surface_observed,
+        empty_return_percentile=a.intensity_empty_percentile,
+        scale_mode=a.intensity_scale_mode,
+        scale_d_cells=_cells(a.intensity_scale_d, a.d_resolution),
+        scale_s_cells=_cells(a.intensity_scale_s, a.s_resolution))
+
+
+def apply_surface_observation(ev: dict, a: argparse.Namespace) -> None:
+    """Z証拠が揃ってから、無返りセルを『暗い』観測として sigma を作り直す。
+
+    反射強度パスの時点では路面が観測できたかどうかが分からないので、Z を
+    読んだ後にもう一度グリッド演算だけやり直す。点群は読み直さない。
+    """
+    if not a.intensity_dark_return or "z_occupied" not in ev:
+        return
+    evidence = core.build_intensity_sigma(
+        ev["i_topk"], ev["count"], ev["_k_used"],
+        **intensity_sigma_kwargs(a, surface_observed=ev["z_occupied"]))
+    for key in ("i_bg", "i_excess", "i_sigma", "i_scale", "i_scale_s",
+                "bg_valid"):
+        ev[key] = evidence[key]
+    ev["i_count_debias"] = evidence["count_debias_table"]
+    stats = ev.setdefault("_intensity_stats", {})
+    stats["normalization"] = evidence["diagnostics"]
+    stats["bg_valid_cells"] = int(evidence["bg_valid"].sum())
+
+
 def build_intensity_evidence(xyz: np.ndarray, intensity: np.ndarray,
                              trajectory: core.Trajectory,
                              a: argparse.Namespace) -> dict:
@@ -230,19 +275,9 @@ def build_intensity_evidence(xyz: np.ndarray, intensity: np.ndarray,
     occupied = count > 0
 
     # --- 点数バイアス補正 -> s方向プール -> annulus 背景 -> 局所スケール
-    inner = _cells(a.bg_inner, a.d_resolution)
-    outer = _cells(a.bg_outer, a.d_resolution)
     evidence = core.build_intensity_sigma(
         i_topk, count, k_count.reshape(nd, ns),
-        inner_cells=inner, outer_cells=outer,
-        scale_smooth_cells=_cells(a.scale_smooth, a.s_resolution),
-        scale_floor=a.scale_floor,
-        pool_s_cells=_cells(a.intensity_pool_s, a.s_resolution),
-        count_debias=a.intensity_count_debias,
-        weighted_background=a.intensity_weighted_background,
-        scale_mode=a.intensity_scale_mode,
-        scale_d_cells=_cells(a.intensity_scale_d, a.d_resolution),
-        scale_s_cells=_cells(a.intensity_scale_s, a.s_resolution))
+        **intensity_sigma_kwargs(a))
     i_bg = evidence["i_bg"]
     i_excess = evidence["i_excess"]
     i_sigma = evidence["i_sigma"]
@@ -292,6 +327,7 @@ def build_intensity_evidence(xyz: np.ndarray, intensity: np.ndarray,
         "i_scale": evidence["i_scale"],
         "i_scale_s": scale, "bg_valid": bg_valid,
         "i_count_debias": evidence["count_debias_table"],
+        "_k_used": k_count.reshape(nd, ns),
         "frenet_ambiguous": ambiguous_grid,
         "frenet_ambiguous_count": ambiguous_count.astype(np.int32),
         "_stats": stats,
@@ -586,6 +622,8 @@ def run_batch(a: argparse.Namespace) -> dict:
     zev = build_z_evidence(xyz_z, trajectory, a)
     meta["z"] = zev.pop("_stats")
     ev.update(zev)
+    apply_surface_observation(ev, a)
+    meta["intensity"].update(ev.pop("_intensity_stats", {}))
 
     # --- RGB (任意)
     rgb_source = None
@@ -614,7 +652,8 @@ def run_batch(a: argparse.Namespace) -> dict:
     else:
         meta["rgb"] = None
 
-    arrays = {k: v for k, v in ev.items() if isinstance(v, np.ndarray)}
+    arrays = {k: v for k, v in ev.items()
+              if isinstance(v, np.ndarray) and not k.startswith("_")}
     arrays["traj_xy"] = trajectory.xy.astype(np.float32)
     arrays["traj_z"] = trajectory.z.astype(np.float32)
     arrays["traj_normal"] = trajectory.normal.astype(np.float32)
@@ -772,6 +811,8 @@ def run_streaming(a: argparse.Namespace) -> dict:
         zev = streaming.build_z_streaming(z_reader, trajectory, a)
         meta["z"] = zev.pop("_stats")
         ev.update(zev)
+        apply_surface_observation(ev, a)
+        meta["intensity"].update(ev.pop("_intensity_stats", {}))
 
         # RGB is optional. Explicit --rgb-pcd wins; otherwise use z-pcd only
         # when it contains non-grayscale colour.
@@ -801,7 +842,8 @@ def run_streaming(a: argparse.Namespace) -> dict:
                 print("[info] RGB PCDはグレースケールのため色判定はスキップ")
             meta["rgb"] = None
 
-    arrays = {k: v for k, v in ev.items() if isinstance(v, np.ndarray)}
+    arrays = {k: v for k, v in ev.items()
+              if isinstance(v, np.ndarray) and not k.startswith("_")}
     arrays["traj_xy"] = trajectory.xy.astype(np.float32)
     arrays["traj_z"] = trajectory.z.astype(np.float32)
     arrays["traj_normal"] = trajectory.normal.astype(np.float32)
