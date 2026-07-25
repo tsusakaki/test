@@ -44,7 +44,7 @@ from lanegen_pcd_io import (
     read_pcd_header,
 )
 
-PRODUCTION_VERSION = "8.0.0-production-v8"
+PRODUCTION_VERSION = "8.1.0-production-v8"
 
 __all__ = [
     "PRODUCTION_VERSION",

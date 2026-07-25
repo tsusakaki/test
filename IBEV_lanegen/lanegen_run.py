@@ -37,10 +37,10 @@ def _utc_now() -> str:
 # 変わったため、v7 以前の Stage1 NPZ は再利用しない。再利用すると改善が
 # 効かないまま古い証拠で走ってしまう。
 _STAGE1_CACHE_COMPATIBLE_VERSIONS = {
-    "8.0.0-production-v8",
+    "8.1.0-production-v8",
 }
 _STAGE2_CACHE_COMPATIBLE_VERSIONS = {
-    "8.0.0-production-v8",
+    "8.1.0-production-v8",
 }
 
 _EXPECTED_SKIP_MESSAGES = {
@@ -335,6 +335,12 @@ def build_parser() -> argparse.ArgumentParser:
                    default="local")
     p.add_argument("--intensity-scale-d", type=float, default=3.0)
     p.add_argument("--intensity-scale-s", type=float, default=25.0)
+    p.add_argument("--no-intensity-dark-return",
+                   dest="intensity_dark_return", action="store_false",
+                   help="路面が観測できているのに反射の返りが無いセルを"
+                        "『暗い』観測として扱わない (v7互換)")
+    p.set_defaults(intensity_dark_return=True)
+    p.add_argument("--intensity-empty-percentile", type=float, default=5.0)
     p.add_argument("--frenet-candidates", type=int, default=12)
     p.add_argument("--frenet-z-weight", type=float, default=1.5)
     p.add_argument("--frenet-heading-weight", type=float, default=0.15)
@@ -466,6 +472,8 @@ def main(argv=None) -> int:
             "intensity_scale_mode": a.intensity_scale_mode,
             "intensity_scale_d": a.intensity_scale_d,
             "intensity_scale_s": a.intensity_scale_s,
+            "intensity_dark_return": a.intensity_dark_return,
+            "intensity_empty_percentile": a.intensity_empty_percentile,
             "frenet_candidates": a.frenet_candidates,
             "frenet_z_weight": a.frenet_z_weight,
             "frenet_heading_weight": a.frenet_heading_weight,
@@ -553,6 +561,8 @@ def main(argv=None) -> int:
                      "--intensity-scale-mode", a.intensity_scale_mode,
                      "--intensity-scale-d", str(a.intensity_scale_d),
                      "--intensity-scale-s", str(a.intensity_scale_s),
+                     "--intensity-empty-percentile",
+                     str(a.intensity_empty_percentile),
                      "--frenet-candidates", str(a.frenet_candidates),
                      "--frenet-z-weight", str(a.frenet_z_weight),
                      "--frenet-heading-weight", str(a.frenet_heading_weight),
@@ -572,6 +582,8 @@ def main(argv=None) -> int:
                 argv1.append("--no-intensity-count-debias")
             if not a.intensity_weighted_background:
                 argv1.append("--no-intensity-weighted-background")
+            if not a.intensity_dark_return:
+                argv1.append("--no-intensity-dark-return")
             if a.z_pcd:
                 argv1 += ["--z-pcd", a.z_pcd]
             if a.rgb_pcd:
