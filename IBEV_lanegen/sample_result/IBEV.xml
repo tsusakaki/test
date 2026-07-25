@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <meta>
+    <task>
+      <size>1</size>
+      <mode>annotation</mode>
+      <labels>
+        <label>
+          <name>lane_line</name>
+          <type>polyline</type>
+          <attribute>
+            <name>line_type</name>
+            <mutable>false</mutable>
+            <input_type>select</input_type>
+            <default_value>Solid_line</default_value>
+            <values>Solid_line
+Dashed_line
+WideDash_line
+Virtual_lane</values>
+          </attribute>
+          <attribute>
+            <name>line_color</name>
+            <mutable>false</mutable>
+            <input_type>select</input_type>
+            <default_value>white</default_value>
+            <values>white
+yellow
+orange
+blue
+other</values>
+          </attribute>
+          <attribute>
+            <name>lane_number</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>stop_line</name>
+          <type>polyline</type>
+        </label>
+        <label>
+          <name>zebra_line</name>
+          <type>polygon</type>
+        </label>
+        <label>
+          <name>curb_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>fence_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>TrafficCone_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>WaterSafety_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>split_point</name>
+          <type>points</type>
+          <attribute>
+            <name>start_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+          <attribute>
+            <name>end_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>merge_point</name>
+          <type>points</type>
+          <attribute>
+            <name>start_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+          <attribute>
+            <name>end_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+      </labels>
+    </task>
+  </meta>
+  <image id="0" name="IBEV.png" width="1994" height="589">
+    <polyline label="lane_line" occluded="0" source="manual" points="475.50,524.31;569.88,516.96;664.25,509.62;758.54,499.39;852.83,489.16;947.15,477.82;1041.48,466.48;1135.80,455.15;1230.12,443.81;1324.62,434.49;1419.13,425.17;1513.79,417.86;1608.67,413.03;1703.54,408.21;1798.66,406.25;1893.97,406.46;1989.49,409.03" z_order="0">
+      <attribute name="line_type">Solid_line</attribute>
+      <attribute name="line_color">white</attribute>
+      <attribute name="lane_number">L3</attribute>
+      <attribute name="_source">auto_intensity</attribute>
+      <attribute name="_confidence">1.000</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.000</attribute>
+      <attribute name="_observed_ratio">1.000</attribute>
+      <attribute name="_interpolated_ratio">0.000</attribute>
+      <attribute name="_max_gap_m">0.00</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">308</attribute>
+      <attribute name="_vertices_after">17</attribute>
+      <attribute name="_fit_rmse_m">0.0421</attribute>
+    </polyline>
+    <polyline label="lane_line" occluded="0" source="manual" points="0.10,534.28;80.11,533.71;160.13,533.15;240.15,532.58;320.26,529.97;400.38,527.36;480.49,524.75" z_order="0">
+      <attribute name="line_type">Solid_line</attribute>
+      <attribute name="line_color">white</attribute>
+      <attribute name="lane_number">L3</attribute>
+      <attribute name="_source">auto_intensity</attribute>
+      <attribute name="_confidence">0.991</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.009</attribute>
+      <attribute name="_observed_ratio">1.000</attribute>
+      <attribute name="_interpolated_ratio">0.000</attribute>
+      <attribute name="_max_gap_m">0.00</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">94</attribute>
+      <attribute name="_vertices_after">7</attribute>
+      <attribute name="_fit_rmse_m">0.0187</attribute>
+    </polyline>
+    <polyline label="lane_line" occluded="0" source="manual" points="73.17,464.57;160.13,464.01;247.10,463.44;305.04,461.73;362.99,460.01;420.91,457.11;478.84,454.20;536.75,450.01;594.66,445.83;671.86,438.03;749.06,430.23;826.26,422.43;918.92,411.30;1011.58,400.18;1104.24,389.06;1196.90,377.94;1289.56,366.82;1347.52,361.08;1405.47,355.35;1463.44,350.92;1521.42,346.48;1608.45,342.63;1695.47,338.78;1753.53,338.00;1811.60,337.22;1869.70,337.81;1927.81,338.39" z_order="0">
+      <attribute name="line_type">Solid_line</attribute>
+      <attribute name="line_color">white</attribute>
+      <attribute name="lane_number">L2</attribute>
+      <attribute name="_source">auto_intensity</attribute>
+      <attribute name="_confidence">0.607</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.445</attribute>
+      <attribute name="_observed_ratio">0.509</attribute>
+      <attribute name="_interpolated_ratio">0.491</attribute>
+      <attribute name="_max_gap_m">10.50</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">373</attribute>
+      <attribute name="_vertices_after">27</attribute>
+      <attribute name="_fit_rmse_m">0.0496</attribute>
+    </polyline>
+    <polyline label="lane_line" occluded="0" source="manual" points="64.08,391.09;117.27,392.68;170.46,394.27;223.54,394.05;276.61,393.84;329.57,392.04;382.53,390.24;435.41,387.10;488.28,383.95;541.08,379.69;593.88,375.43;672.97,367.45;752.06,359.46;836.33,349.44;920.61,339.42;1004.88,329.40;1089.15,319.38;1173.42,309.36;1243.73,302.04;1314.03,294.71;1384.34,287.38;1437.15,283.13;1489.96,278.87;1542.85,275.76;1595.75,272.65;1675.27,270.67;1754.79,268.70" z_order="0">
+      <attribute name="line_type">Dashed_line</attribute>
+      <attribute name="line_color">white</attribute>
+      <attribute name="lane_number">L1</attribute>
+      <attribute name="_source">auto_intensity</attribute>
+      <attribute name="_confidence">0.946</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.112</attribute>
+      <attribute name="_observed_ratio">0.444</attribute>
+      <attribute name="_interpolated_ratio">0.556</attribute>
+      <attribute name="_max_gap_m">11.75</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">340</attribute>
+      <attribute name="_vertices_after">27</attribute>
+      <attribute name="_fit_rmse_m">0.0412</attribute>
+    </polyline>
+    <polyline label="lane_line" occluded="0" source="manual" points="0.27,322.94;55.41,324.02;110.55,325.10;165.57,324.80;220.59,324.49;275.50,322.91;330.42,321.33;412.63,316.81;494.84,312.30;549.56,308.01;604.28,303.73;686.27,295.69;768.27,287.65;855.67,276.95;943.07,266.25;1030.47,255.55;1117.87,244.85;1205.27,234.15;1287.30,225.63;1369.34,217.12;1424.10,212.90;1478.86,208.69;1533.69,205.78;1588.53,202.87;1670.96,201.17;1753.40,199.47" z_order="0">
+      <attribute name="line_type">Dashed_line</attribute>
+      <attribute name="line_color">white</attribute>
+      <attribute name="lane_number">R1</attribute>
+      <attribute name="_source">auto_intensity</attribute>
+      <attribute name="_confidence">0.916</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.161</attribute>
+      <attribute name="_observed_ratio">0.382</attribute>
+      <attribute name="_interpolated_ratio">0.618</attribute>
+      <attribute name="_max_gap_m">15.50</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">353</attribute>
+      <attribute name="_vertices_after">26</attribute>
+      <attribute name="_fit_rmse_m">0.0432</attribute>
+    </polyline>
+    <polyline label="lane_line" occluded="0" source="manual" points="2.36,253.45;64.78,254.07;127.19,254.69;189.49,254.03;251.78,253.36;313.97,251.29;376.16,249.21;438.27,245.61;500.38,242.01;562.43,236.87;624.47,231.73;686.47,225.39;748.47,219.04;847.64,207.40;946.81,195.75;1045.99,184.10;1145.16,172.46;1244.33,160.81;1306.40,154.62;1368.46,148.42;1430.59,143.45;1492.73,138.48;1554.95,135.04;1617.17,131.59;1679.50,129.65;1741.84,127.71;1804.30,127.17;1866.76,126.63;1929.36,127.39;1991.97,128.15" z_order="0">
+      <attribute name="line_type">Solid_line</attribute>
+      <attribute name="line_color">white</attribute>
+      <attribute name="lane_number">R2</attribute>
+      <attribute name="_source">auto_intensity</attribute>
+      <attribute name="_confidence">1.000</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.000</attribute>
+      <attribute name="_observed_ratio">1.000</attribute>
+      <attribute name="_interpolated_ratio">0.000</attribute>
+      <attribute name="_max_gap_m">0.00</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">400</attribute>
+      <attribute name="_vertices_after">30</attribute>
+      <attribute name="_fit_rmse_m">0.0399</attribute>
+    </polyline>
+    <polyline label="curb_boundary" occluded="0" source="manual" points="-0.27,558.46;61.85,555.51;123.96,552.55;217.19,554.34;310.42,556.12;372.61,554.87;434.81,551.60;497.01,548.34;590.35,540.76;683.69,533.19;777.05,521.17;870.40,509.15;963.76,499.02;1057.12,488.88;1119.35,479.73;1181.58,470.57;1264.52,462.65;1347.46,454.73;1430.40,446.81;1523.63,441.05;1616.87,435.28;1699.66,434.33;1782.46,433.38;1865.25,432.43;1927.28,430.43;1989.30,428.43" z_order="0">
+      <attribute name="boundary_id">C001</attribute>
+      <attribute name="_source">auto_z_step</attribute>
+      <attribute name="_confidence">0.970</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.050</attribute>
+      <attribute name="_observed_ratio">0.693</attribute>
+      <attribute name="_interpolated_ratio">0.307</attribute>
+      <attribute name="_max_gap_m">4.00</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">400</attribute>
+      <attribute name="_vertices_after">26</attribute>
+      <attribute name="_fit_rmse_m">0.0773</attribute>
+    </polyline>
+    <polyline label="curb_boundary" occluded="0" source="manual" points="4.03,160.09;88.13,159.31;172.23,158.53;256.33,157.74;339.69,153.99;423.06,150.25;506.43,146.50;599.68,138.20;692.93,129.89;791.90,118.28;890.88,106.67;989.85,95.05;1088.83,83.44;1187.80,71.83;1280.49,63.39;1373.18,54.96;1450.62,50.68;1528.05,46.40;1605.49,42.12;1682.92,37.85;1760.85,36.44;1838.78,35.03;1916.71,33.63;1994.64,32.22" z_order="0">
+      <attribute name="boundary_id">C002</attribute>
+      <attribute name="_source">auto_z_step</attribute>
+      <attribute name="_confidence">0.934</attribute>
+      <attribute name="_review_required">false</attribute>
+      <attribute name="_review_reasons" />
+      <attribute name="_review_priority">0.140</attribute>
+      <attribute name="_observed_ratio">0.522</attribute>
+      <attribute name="_interpolated_ratio">0.477</attribute>
+      <attribute name="_max_gap_m">14.75</attribute>
+      <attribute name="_frenet_ambiguity_ratio">0.0000</attribute>
+      <attribute name="_max_frenet_ambiguity_run_m">0.00</attribute>
+      <attribute name="_lane_id_manual">false</attribute>
+      <attribute name="_geometry_fit">spline</attribute>
+      <attribute name="_vertices_before">400</attribute>
+      <attribute name="_vertices_after">24</attribute>
+      <attribute name="_fit_rmse_m">0.0861</attribute>
+    </polyline>
+  </image>
+</annotations>

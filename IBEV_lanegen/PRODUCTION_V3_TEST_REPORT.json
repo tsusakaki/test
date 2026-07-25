@@ -1,0 +1,97 @@
+{
+  "status": "PASS",
+  "production_version": "3.0.0-production-v3",
+  "pcd_modes": {
+    "ascii": {
+      "points": 257,
+      "data_type": "ascii"
+    },
+    "binary": {
+      "points": 257,
+      "data_type": "binary"
+    },
+    "binary_compressed": {
+      "points": 257,
+      "data_type": "binary_compressed"
+    }
+  },
+  "resume_test": {
+    "status": "COMPLETED",
+    "stage1_reused": true,
+    "stage2_reused": true
+  },
+  "cancel_test": {
+    "return_code": 2,
+    "status": "CANCELLED"
+  },
+  "frenet_ambiguity_test": {
+    "crossing_ambiguous_dropped": true,
+    "ordinary_point_kept": true
+  },
+  "long_gap_bridge_test": {
+    "crossing_bridge_rejected": true,
+    "rejected_count": 1
+  },
+  "lane": {
+    "pred_polylines": 6,
+    "gt_polylines": 5,
+    "recall": 0.9196,
+    "precision": 1.0,
+    "lateral_rmse_m": 0.0287,
+    "lateral_p95_m": 0.0581,
+    "fragments_per_gt_line": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "mean_fragments": 1.2,
+    "per_gt_recall": [
+      0.98,
+      0.912,
+      0.833,
+      0.873,
+      1.0
+    ]
+  },
+  "curb": {
+    "pred_polylines": 2,
+    "gt_polylines": 2,
+    "recall": 0.8725,
+    "precision": 0.9025,
+    "lateral_rmse_m": 0.0856,
+    "lateral_p95_m": 0.1754,
+    "fragments_per_gt_line": [
+      1,
+      1
+    ],
+    "mean_fragments": 1.0,
+    "per_gt_recall": [
+      0.833,
+      0.912
+    ]
+  },
+  "annotator_schema": {
+    "records": 8,
+    "ids_unique": 8,
+    "auto_ids_unique": 8
+  },
+  "deterministic_hashes": {
+    "xml": "48d9bfdeb40e861fb02ae2eb116405474dd4a198c15eecae05f24cb2a1349808",
+    "annotator": "a0592682e5a40c60cb5ca7154b7d1d043918361821a14864669babe0e481ce10"
+  },
+  "verified_at_utc": "2026-07-24T22:42:53.815075+00:00",
+  "scope": {
+    "synthetic_end_to_end": true,
+    "pcd_ascii": true,
+    "pcd_binary": true,
+    "pcd_binary_compressed": true,
+    "resume": true,
+    "cooperative_cancel": true,
+    "atomic_stage_cache": true,
+    "qt_bridge_syntax": true,
+    "real_IBEV_runtime_in_this_container": false,
+    "note_ja": "合成データと専用PCD fixtureでV3機能を確認。過去添付の実IBEV.pcd/RGBBEV.pcd本体は現在の実行コンテナにマウントされていないため、実データ速度・メモリ評価は未実施。"
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "production_version": "3.0.0-production-v3",
+  "created_at_utc": "2026-07-24T22:42:53.853919+00:00",
+  "file_count": 35,
+  "files": {
+    "PRODUCTION_V1_CHANGELOG.md": {
+      "size_bytes": 1921,
+      "sha256": "ca8db30f504c32841420fdbf827461c3de2d83b26cd434306845b78d3d0790c0"
+    },
+    "PRODUCTION_V1_TEST_REPORT.json": {
+      "size_bytes": 1427,
+      "sha256": "76a0ca8de30408b0914bdabdb65f1b50778450d76288e8f1d8dbabc752a59ae0"
+    },
+    "PRODUCTION_V2_CHANGELOG.md": {
+      "size_bytes": 2300,
+      "sha256": "ad94cfb575c58ea0d4dff3c9860d2911d1a69b1cd439cf7913214497dbcdd026"
+    },
+    "PRODUCTION_V2_TEST_REPORT.json": {
+      "size_bytes": 1839,
+      "sha256": "a9cc21bf1ab00d76a57c907f7e9901aa8914d69b432e659343599aa473d080af"
+    },
+    "PRODUCTION_V3_CHANGELOG.md": {
+      "size_bytes": 2334,
+      "sha256": "1d647d21281eb824865c72c86017bc7cf34d3f59449f6f40eab0623507f148f5"
+    },
+    "PRODUCTION_V3_TEST_REPORT.json": {
+      "size_bytes": 2263,
+      "sha256": "4dfc3ac1d37903386ce790015cc2870887a1f6a9f27603777d3ceb1a97e7cfb8"
+    },
+    "QT_INTEGRATION_JP.md": {
+      "size_bytes": 1303,
+      "sha256": "cb39bb78fc08ad00f67151a9f49d4766328053666728238c62f070e727b3f782"
+    },
+    "README_JP.md": {
+      "size_bytes": 14319,
+      "sha256": "5ceb3b2c27e0442e05d2f01a7a45e2b996593a103d406a0284d0ac5a10165fdb"
+    },
+    "lanegen_core.py": {
+      "size_bytes": 34150,
+      "sha256": "ce5139040519262543461bacdfa4a4346433226af1b8695f91c778500566c726"
+    },
+    "lanegen_evaluate.py": {
+      "size_bytes": 6586,
+      "sha256": "e1deacc329550a408c5de5829ffa0102ec681646d52e9bf1f5b8c26a586eaaf1"
+    },
+    "lanegen_job_control.py": {
+      "size_bytes": 1376,
+      "sha256": "86afb062fa95a07630c3852fd399b86e5625f9cb914d676a0bb24dc918bf7753"
+    },
+    "lanegen_pcd_io.py": {
+      "size_bytes": 15311,
+      "sha256": "c61e8313b742dab0551d14a49bfc907e5bb146ed594245b32e9d04142fb9e56d"
+    },
+    "lanegen_qt_runner.py": {
+      "size_bytes": 5597,
+      "sha256": "69a030e1c39c4496a6818c0ff4eebcbdfb21072f9cb65b381b747bbed302e793"
+    },
+    "lanegen_regression_test.py": {
+      "size_bytes": 13069,
+      "sha256": "7fd803838b3a7c77dbc6dea5f4bc856edb7b1a2b07008f552cfe5bcf83db191b"
+    },
+    "lanegen_run.py": {
+      "size_bytes": 16833,
+      "sha256": "e946e8b26bf229ff7c65972a5c3adbd6cb882566ae3065ec60fed2249db63d7a"
+    },
+    "lanegen_self_check.py": {
+      "size_bytes": 3386,
+      "sha256": "322d22daa7524a438a5739bdba9446ced4993d157d76e612b3d990854330e460"
+    },
+    "lanegen_stage1_extract.py": {
+      "size_bytes": 25834,
+      "sha256": "d3f414f5db06d35475054c0f94654f95d08a861fe9366b3711488171ceba2bad"
+    },
+    "lanegen_stage2_lines.py": {
+      "size_bytes": 46941,
+      "sha256": "db5e3c7ff894f76a7e9b584e2eb9e9d2b9a37b0eca8943aed0fd909e91056b8d"
+    },
+    "lanegen_stage3_export.py": {
+      "size_bytes": 36291,
+      "sha256": "30da16351df8fa6cba6d63af06b658e7f8edab067118a32fae921b2a0cc1a03f"
+    },
+    "make_synthetic_ibev.py": {
+      "size_bytes": 9828,
+      "sha256": "5e76a0746c5efb3c38af6f8c338d9c9911d41bbab14718081ce0fb90d1443176"
+    },
+    "requirements.txt": {
+      "size_bytes": 103,
+      "sha256": "a8aa8661df310a8553d1028f87bffe7b1dc667dd0d9f55652728156263aaa1bc"
+    },
+    "sample_result/IBEV.xml": {
+      "size_bytes": 26182,
+      "sha256": "48d9bfdeb40e861fb02ae2eb116405474dd4a198c15eecae05f24cb2a1349808"
+    },
+    "sample_result/IBEV_annotator.json": {
+      "size_bytes": 75193,
+      "sha256": "a0592682e5a40c60cb5ca7154b7d1d043918361821a14864669babe0e481ce10"
+    },
+    "sample_result/IBEV_annotator_main.json": {
+      "size_bytes": 75193,
+      "sha256": "a0592682e5a40c60cb5ca7154b7d1d043918361821a14864669babe0e481ce10"
+    },
+    "sample_result/IBEV_annotator_review.json": {
+      "size_bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "sample_result/IBEV_eval.json": {
+      "size_bytes": 700,
+      "sha256": "9a3be3efd4c8ce92b7f54bc1483a228baad9fd2549f2365c5efc3a8b30ecc972"
+    },
+    "sample_result/IBEV_job_state.json": {
+      "size_bytes": 2307,
+      "sha256": "f00ec499bb56283314cb889931f2d759d6e86640adc4e967ad15a9666f043cf7"
+    },
+    "sample_result/IBEV_preview.png": {
+      "size_bytes": 314455,
+      "sha256": "06f2738456386917eef5241d210ac8f48f76607158d3f6e3908b86b447433152"
+    },
+    "sample_result/IBEV_review.xml": {
+      "size_bytes": 4000,
+      "sha256": "958fca24b8c5f644fc89b41d0edd3bbe366ae40000114b26b5d680e5d6a52882"
+    },
+    "sample_result/IBEV_stage1.meta.json": {
+      "size_bytes": 5683,
+      "sha256": "3e5a6faf68281d21d3b5b97a26f4fd41c452e31fd85edd2aa4880f5701a66eaf"
+    },
+    "sample_result/IBEV_stage2.meta.json": {
+      "size_bytes": 11109,
+      "sha256": "115feb02b1d5dd2a26e08568057b732b19d682188ca4bed19dc00d492a13c775"
+    },
+    "sample_result/IBEV_stage3.meta.json": {
+      "size_bytes": 3501,
+      "sha256": "a7dae49537c8334b4fc1d352d78e121d7246700412bb48f544c769d31cf63dda"
+    },
+    "sample_result/IBEV_tracks.csv": {
+      "size_bytes": 3741,
+      "sha256": "4f158ef836f0c465460e81d09d7c7268994242a16cc3302371d1ec56e04dab89"
+    },
+    "sample_result/truth.json": {
+      "size_bytes": 988,
+      "sha256": "9d9d6359accdcaacbfe5434b5abda356382c74b8c7ec9afc1238f5a90743412e"
+    },
+    "sample_result/truth_gt.xml": {
+      "size_bytes": 15733,
+      "sha256": "d1bd149a9201f5abfb2c4020c4172935ed559ef892d3192c4222cbaa605cce65"
+    }
+  }
+}

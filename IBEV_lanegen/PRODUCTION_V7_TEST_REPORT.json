@@ -1,0 +1,92 @@
+{
+  "production_version": "7.0.0-production-v7",
+  "verified_at_utc": "2026-07-25T06:01:50.368556+00:00",
+  "source_stage1": {
+    "sha256": "cb907c7b34370738253f8bfbcbd88ae150535ae378ff48e71986491a88d4f297",
+    "clip": "clip_2026_05_29_13_56_57_0014"
+  },
+  "diagnosis": {
+    "stage3_rgb_health_weight_before_fix": 0.0,
+    "rgb_was_excluding_intensity_tracks": false,
+    "root_cause": "反射強度Stage2の候補数不足。V6平滑化前のStage2で既にLaneが欠落していた。"
+  },
+  "stage2": {
+    "intensity_tracks_before_rgb": 10,
+    "rgb_fusion": {
+      "mode": "auto",
+      "used": true,
+      "baseline_span_m": 179.5,
+      "baseline_span_ratio": 0.23712021136063408,
+      "baseline_tracks_per_100m": 1.321003963011889,
+      "available": true,
+      "valid_cells": 1497715,
+      "candidate_cells": 24275,
+      "candidate_ratio_of_valid": 0.016208023555883463,
+      "white_candidate_cells": 21874,
+      "yellow_candidate_cells": 5249,
+      "local_contrast_p99": 65.19761657714844,
+      "sigma_p99": 10.079248428344727,
+      "parameters": {
+        "sigma_threshold": 6.0,
+        "strong_sigma_threshold": 9.0,
+        "min_luminance": 110.0,
+        "min_local_contrast": 10.0
+      },
+      "ridge_points": 9513,
+      "segments": 1150,
+      "edges": 1474,
+      "edge_diagnostics": {
+        "candidates": 150454,
+        "accepted": 1474,
+        "long_gap_candidates": 119158,
+        "long_gap_accepted": 89,
+        "rejected_position": 147914,
+        "rejected_slope": 16,
+        "rejected_bridge_crossing": 1050
+      },
+      "chains": 61,
+      "tracks_before_merge": 61,
+      "duplicate_dropped": 13,
+      "tracks_added": 48,
+      "median_ridge_width_m": 0.15000000000000002
+    },
+    "final_counts": {
+      "lane": 53,
+      "curb": 25,
+      "hatch": 4,
+      "solid": 12,
+      "dashed": 37
+    }
+  },
+  "stage3": {
+    "counts": {
+      "total_tracks": 82,
+      "main_shapes": 65,
+      "review_shapes": 13,
+      "lane": 53,
+      "curb": 25,
+      "hatch_excluded": 4,
+      "solid": 12,
+      "dashed": 37
+    },
+    "rgb_health": {
+      "available": true,
+      "healthy": false,
+      "weight": 0.0,
+      "white_ratio": 0.7652638004476452,
+      "valid_ratio": 0.8247799053593045,
+      "luminance_p50": 145.7570037841797,
+      "reason": "白画素が多すぎる (白飛び・積雪・濡れ路面の可能性)"
+    },
+    "geometry_smoothing": {
+      "modes": {
+        "spline": 78,
+        "line": 4
+      },
+      "vertices_before": 21377,
+      "vertices_after": 1416,
+      "reduction_ratio": 0.9337605838050241
+    }
+  },
+  "status": "PASS"
+}

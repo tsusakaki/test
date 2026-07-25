@@ -1,0 +1,112 @@
+{
+  "status": "PASS",
+  "production_version": "5.0.0-production-v5",
+  "verified_at_utc": "2026-07-25T02:43:16.784225+00:00",
+  "sqlite_input": {
+    "uploaded_database_name": "BEV_OD_processing.sqlite",
+    "table": "match_result_tasks",
+    "row_count": 49,
+    "nonempty_lidar_path_count": 0,
+    "fallback_to_lidar_source_required": true,
+    "unique_result_roots_after_normalization": 43,
+    "example_clip": {
+      "clip_name": "clip_2026_05_29_13_55_57_0013",
+      "merged_row_ids": [
+        13,
+        45
+      ],
+      "resolved_result_root": "D:\\sakaki\\LiDAR\\ZRV\\20260529\\LiDAR\\clip_2026_05_29_13_55_57_0013\\result",
+      "inputs": {
+        "intensity_pcd": "D:\\sakaki\\LiDAR\\ZRV\\20260529\\LiDAR\\clip_2026_05_29_13_55_57_0013\\result\\mapqr_input\\IBEV.pcd",
+        "rgb_pcd": "D:\\sakaki\\LiDAR\\ZRV\\20260529\\LiDAR\\clip_2026_05_29_13_55_57_0013\\result\\mapqr_input\\RGBBEV.pcd",
+        "mapping_pose": "D:\\sakaki\\LiDAR\\ZRV\\20260529\\LiDAR\\clip_2026_05_29_13_55_57_0013\\result\\mapping\\mapping_pose.txt"
+      },
+      "expected_output_suffix": "clip_2026_05_29_13_55_57_0013_output\\work_dir\\bevld"
+    }
+  },
+  "sqlite_dry_run": {
+    "status": "PASS",
+    "recursive_output_search": true,
+    "lidar_source_fallback": true,
+    "result_bagEx_normalization_and_deduplication": true
+  },
+  "synthetic_sqlite_end_to_end": {
+    "status": "COMPLETED",
+    "output_suffix": "clip_test_output/work_dir/bevld",
+    "first_run_elapsed_sec": 16.76,
+    "resume_run_elapsed_sec": 1.89,
+    "stage1_reused_on_resume": true,
+    "stage2_reused_on_resume": true,
+    "files_generated": [
+      "IBEV.xml",
+      "IBEV_annotator.json",
+      "IBEV_annotator_main.json",
+      "IBEV_annotator_review.json",
+      "IBEV_job_state.json",
+      "IBEV_lanegen_source.json",
+      "IBEV_preview.png",
+      "IBEV_progress.json",
+      "IBEV_review.xml",
+      "IBEV_stage1.meta.json",
+      "IBEV_stage1.npz",
+      "IBEV_stage2.meta.json",
+      "IBEV_stage2.npz",
+      "IBEV_stage3.meta.json",
+      "IBEV_tracks.csv"
+    ],
+    "lane": {
+      "pred_polylines": 6,
+      "gt_polylines": 5,
+      "recall": 0.9196,
+      "precision": 1.0,
+      "lateral_rmse_m": 0.0287,
+      "lateral_p95_m": 0.0581,
+      "fragments_per_gt_line": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ],
+      "mean_fragments": 1.2,
+      "per_gt_recall": [
+        0.98,
+        0.912,
+        0.833,
+        0.873,
+        1.0
+      ]
+    },
+    "curb": {
+      "pred_polylines": 2,
+      "gt_polylines": 2,
+      "recall": 0.8725,
+      "precision": 0.9025,
+      "lateral_rmse_m": 0.0856,
+      "lateral_p95_m": 0.1754,
+      "fragments_per_gt_line": [
+        1,
+        1
+      ],
+      "mean_fragments": 1.0,
+      "per_gt_recall": [
+        0.833,
+        0.912
+      ]
+    }
+  },
+  "checks": {
+    "all_python_syntax": true,
+    "legacy_individual_pcd_mode_preserved": true,
+    "sqlite_read_only": true,
+    "source_metadata_written": true,
+    "batch_summary_written": true,
+    "duplicate_output_folder_guard": true,
+    "missing_output_folder_guard": true,
+    "missing_input_guard": true
+  },
+  "limitations": [
+    "The Windows D: input files were not mounted in this Linux container, so the real IBEV/RGBBEV files were not executed here.",
+    "The uploaded SQLite was inspected read-only and was not modified."
+  ]
+}

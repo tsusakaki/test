@@ -1,0 +1,39 @@
+{
+ "production_version": "5.0.0-production-v5",
+ "created_at_utc": "2026-07-25T02:39:32.011712+00:00",
+ "source_database": "/mnt/data/v5_sqlite_e2e/tasks.sqlite",
+ "source_database_signature": {
+  "path": "/mnt/data/v5_sqlite_e2e/tasks.sqlite",
+  "size_bytes": 8192,
+  "sha256": "a216b497bc6d2ffc4f102d67a4f3490c941fffeadeb1c5d4ea602c1ada4b8c44"
+ },
+ "row_ids": [
+  1
+ ],
+ "selected_path_column": "lidar_path",
+ "source_paths": [
+  "/mnt/data/v5_sqlite_e2e/input/clip_test/result/local_pcdbin/total_frame.txt"
+ ],
+ "result_resolution": [
+  "exact_result"
+ ],
+ "result_root": "/mnt/data/v5_sqlite_e2e/input/clip_test/result",
+ "clip_name": "clip_test",
+ "inputs": {
+  "intensity_pcd": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/mapqr_input/IBEV.pcd",
+  "rgb_pcd": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/mapqr_input/RGBBEV.pcd",
+  "mapping_pose": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/mapping/mapping_pose.txt"
+ },
+ "output": {
+  "container": "/mnt/data/v5_sqlite_e2e/output/group/clip_test_output",
+  "bevld_dir": "/mnt/data/v5_sqlite_e2e/output/group/clip_test_output/work_dir/bevld"
+ },
+ "database_rows": [
+  {
+   "id": 1,
+   "bag_datetime_str": "test",
+   "lidar_path": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/local_pcdbin/total_frame.txt",
+   "lidar_source": null
+  }
+ ]
+}

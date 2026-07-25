@@ -1,0 +1,40 @@
+{
+  "status": "PASS",
+  "production_version": "5.0.0-production-v5",
+  "fix_name": "console-message-fix",
+  "verified_at_utc": "2026-07-25T03:18:44.831530+00:00",
+  "tests": {
+    "trajectory_too_short": {
+      "single_job_return_code": 3,
+      "job_status": "SKIPPED",
+      "skip_reason": "TRAJECTORY_TOO_SHORT",
+      "traceback_shown": false,
+      "console_prefix": "[skip]"
+    },
+    "sqlite_batch_skip": {
+      "batch_return_code": 0,
+      "batch_status": "COMPLETED_WITH_SKIPS",
+      "counts": {
+        "SKIPPED": 1
+      },
+      "continues_to_next_task": true,
+      "traceback_shown": false
+    },
+    "unexpected_failure": {
+      "batch_return_code": 1,
+      "batch_status": "COMPLETED_WITH_ERRORS",
+      "console_prefix": "[failed]",
+      "traceback_shown_by_default": false,
+      "debug_option": "--debug-traceback"
+    },
+    "syntax": {
+      "lanegen_run.py": "PASS",
+      "lanegen_sqlite_batch.py": "PASS"
+    }
+  },
+  "algorithm_changes": false,
+  "cache_compatibility": "Production version remains 5.0.0; existing valid Stage caches remain reusable.",
+  "full_algorithm_regression": {
+    "note_ja": "今回の変更はオーケストレーションと表示のみ。既存Production V5の精度処理は変更していません。フル回帰は実行時間制限内に完了しなかったため、既存V5回帰結果と対象機能の専用試験で確認しました。"
+  }
+}

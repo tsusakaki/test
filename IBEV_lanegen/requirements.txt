@@ -1,0 +1,5 @@
+numpy>=1.24
+scipy>=1.10
+matplotlib>=3.7
+# Optional: required only for lanegen_qt_runner.py
+PyQt5>=5.15

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<annotations>
+  <version>1.1</version>
+  <meta>
+    <task>
+      <size>1</size>
+      <mode>annotation</mode>
+      <labels>
+        <label>
+          <name>lane_line</name>
+          <type>polyline</type>
+          <attribute>
+            <name>line_type</name>
+            <mutable>false</mutable>
+            <input_type>select</input_type>
+            <default_value>Solid_line</default_value>
+            <values>Solid_line
+Dashed_line
+WideDash_line
+Virtual_lane</values>
+          </attribute>
+          <attribute>
+            <name>line_color</name>
+            <mutable>false</mutable>
+            <input_type>select</input_type>
+            <default_value>white</default_value>
+            <values>white
+yellow
+orange
+blue
+other</values>
+          </attribute>
+          <attribute>
+            <name>lane_number</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>stop_line</name>
+          <type>polyline</type>
+        </label>
+        <label>
+          <name>zebra_line</name>
+          <type>polygon</type>
+        </label>
+        <label>
+          <name>curb_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>fence_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>TrafficCone_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>WaterSafety_boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>boundary</name>
+          <type>polyline</type>
+          <attribute>
+            <name>boundary_id</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>split_point</name>
+          <type>points</type>
+          <attribute>
+            <name>start_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+          <attribute>
+            <name>end_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+        <label>
+          <name>merge_point</name>
+          <type>points</type>
+          <attribute>
+            <name>start_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+          <attribute>
+            <name>end_line_ids</name>
+            <mutable>false</mutable>
+            <input_type>text</input_type>
+            <default_value />
+            <values />
+          </attribute>
+        </label>
+      </labels>
+    </task>
+  </meta>
+  <image id="0" name="IBEV.png" width="1994" height="589" />
+</annotations>

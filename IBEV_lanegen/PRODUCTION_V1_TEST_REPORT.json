@@ -1,0 +1,59 @@
+{
+  "status": "PASS",
+  "lane": {
+    "pred_polylines": 5,
+    "gt_polylines": 5,
+    "recall": 0.9412,
+    "precision": 1.0,
+    "lateral_rmse_m": 0.028,
+    "lateral_p95_m": 0.0578,
+    "fragments_per_gt_line": [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "mean_fragments": 1.0,
+    "per_gt_recall": [
+      0.98,
+      0.98,
+      0.873,
+      0.873,
+      1.0
+    ]
+  },
+  "curb": {
+    "pred_polylines": 2,
+    "gt_polylines": 2,
+    "recall": 0.8578,
+    "precision": 0.8544,
+    "lateral_rmse_m": 0.0906,
+    "lateral_p95_m": 0.1805,
+    "fragments_per_gt_line": [
+      1,
+      1
+    ],
+    "mean_fragments": 1.0,
+    "per_gt_recall": [
+      0.892,
+      0.824
+    ]
+  },
+  "annotator_schema": {
+    "records": 7,
+    "ids_unique": 7,
+    "auto_ids_unique": 7
+  },
+  "deterministic_hashes": {
+    "xml": "f6b8f201778674ee53e8f4b2b6b3536efb8dd692d9fc6e616f56b70ad04badcb",
+    "annotator": "0b42dd79c90d5708f9e9ec39d1791e2f7221c5c1bf5fe6e03b9ba4f77e7c1d04"
+  },
+  "production_version": "1.0.0-production-v1",
+  "verified_at_utc": "2026-07-24T16:37:04.989950+00:00",
+  "scope": {
+    "synthetic_regression": true,
+    "real_IBEV_runtime_in_this_environment": false,
+    "note_ja": "同梱合成データによるStage1/2/3・評価・再現性試験。この実行環境では過去添付の実PCDバイナリがマウントされていないため、実IBEV.pcd/RGBBEV.pcdの再実行は未実施。"
+  }
+}
