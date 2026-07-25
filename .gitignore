@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 _regression_work/
 _dbg/
+_viz/

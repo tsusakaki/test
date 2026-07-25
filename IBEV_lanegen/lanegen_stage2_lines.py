@@ -76,9 +76,9 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="RGB局所散布度窓の d 方向半幅 [m]")
     g.add_argument("--rgb-scale-s", type=float, default=25.0,
                    help="RGB局所散布度窓の s 方向半幅 [m]")
-    g.add_argument("--rgb-sigma-threshold", type=float, default=6.0,
+    g.add_argument("--rgb-sigma-threshold", type=float, default=3.0,
                    help="局所背景に対するRGB輝度コントラスト閾値 [sigma]")
-    g.add_argument("--rgb-strong-sigma-threshold", type=float, default=9.0,
+    g.add_argument("--rgb-strong-sigma-threshold", type=float, default=4.5,
                    help="強いRGB証拠として単独採用する閾値 [sigma]")
     g.add_argument("--rgb-min-luminance", type=float, default=110.0,
                    help="白・黄ペイント候補の最小輝度")
@@ -284,6 +284,15 @@ def build_rgb_lane_evidence(npz, d_res: float, s_res: float,
         npz["i_sigma"].astype(np.float32),
         size=support_size, mode="nearest")
     weak_intensity_support = intensity_near >= a.rgb_intensity_support_sigma
+
+    # 反射強度の有効セルが近傍に1つも無い場所で「反射強度の支持」を要求すると
+    # 循環論法になる。反射強度点群が疎なクリップ (IBEV.pcd が RGBBEV.pcd の
+    # 1/10 の点数しか無い等) では、線の位置の s列被覆が 34〜37% しかなく、
+    # 残り 2/3 は支持を返しようがない。そこは支持要求を外す。
+    intensity_observed = maximum_filter(
+        npz["bg_valid"].astype(np.uint8),
+        size=support_size, mode="nearest") > 0
+    weak_intensity_support = weak_intensity_support | ~intensity_observed
 
     z_edge = np.zeros_like(valid)
     if "z_level_diff" in npz.files and "dz_dd" in npz.files:
@@ -1242,11 +1251,29 @@ def run(a: argparse.Namespace) -> dict:
             print(
                 "[info] RGB lane fusion: requested but no usable local "
                 "contrast candidates")
+    elif a.rgb_lane_fusion == "off":
+        # off でも「auto なら発火したか」を出す。反射強度が疎なクリップで
+        # off のまま回して線が出ない、という取り違えを防ぐ。
+        would_fire = (
+            baseline_span_ratio < a.rgb_auto_min_span_ratio
+            or baseline_tracks_per_100m < a.rgb_auto_min_tracks_per_100m
+            or baseline_coverage < a.rgb_auto_min_coverage
+            or baseline_on_m < a.rgb_auto_min_on_length)
+        note = (" ** auto なら発火する条件です。--rgb-lane-fusion auto を検討 **"
+                if would_fire else "")
+        print(
+            "[info] RGB lane fusion: disabled by --rgb-lane-fusion off "
+            f"(span_ratio={baseline_span_ratio:.3f}, "
+            f"tracks_per_100m={baseline_tracks_per_100m:.2f}, "
+            f"median_coverage={baseline_coverage:.2f}, "
+            f"median_on={baseline_on_m:.2f}m){note}")
     else:
         print(
             "[info] RGB lane fusion: not required "
             f"(baseline_span_ratio={baseline_span_ratio:.3f}, "
-            f"tracks_per_100m={baseline_tracks_per_100m:.2f})")
+            f"tracks_per_100m={baseline_tracks_per_100m:.2f}, "
+            f"median_coverage={baseline_coverage:.2f}, "
+            f"median_on={baseline_on_m:.2f}m)")
     stats["rgb_lane_fusion"] = rgb_stats
 
     # ---------------- 段差: 符号付きレベル差から縁石トラック
