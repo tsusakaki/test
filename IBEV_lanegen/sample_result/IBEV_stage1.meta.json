@@ -1,0 +1,288 @@
+{
+ "stage": 1,
+ "production_version": "6.0.0-production-v6",
+ "aggregation": {
+  "mode": "fully_streaming_grid",
+  "full_point_arrays_materialized": false,
+  "point_memory_complexity": "O(chunk_points)",
+  "grid_memory_complexity": "O(nd*ns*k)"
+ },
+ "code": {
+  "stage1_sha256": "9934d902c1241dd76953213d6ec1e881e71481d27b242d6caeb812faf488fc5d",
+  "core_sha256": "a9bad9c821d4ea09dab15270e93ad24f0468e43497c32a5689bc5700944bb4fa",
+  "streaming_sha256": "264cc4b7b7f196583801b9fb381ce820db9f449ba3e328783b732e8994aa5213"
+ },
+ "inputs": {
+  "intensity_pcd": "/mnt/data/v6_regression_final/synth/IBEV_synth.pcd",
+  "mapping_pose": "/mnt/data/v6_regression_final/synth/mapping_pose_synth.txt",
+  "signatures": {
+   "intensity_pcd": {
+    "path": "/mnt/data/v6_regression_final/synth/IBEV_synth.pcd",
+    "size_bytes": 35484108,
+    "sha256": "6ba970bf53f8d8a0666adf71b5397d22a120843d8d6da8352eb771745c1fbe43"
+   },
+   "mapping_pose": {
+    "path": "/mnt/data/v6_regression_final/synth/mapping_pose_synth.txt",
+    "size_bytes": 2823,
+    "sha256": "3865e15af22d73955aace60ebce08f212a70da33682973759f9b79d540fbda88"
+   },
+   "z_pcd": {
+    "path": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+    "size_bytes": 12047778,
+    "sha256": "69ea27fbdf9711f96a1239ff58fc82e345d0ef5e779e25b12b79cf69170a3453"
+   },
+   "rgb_pcd": {
+    "path": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+    "size_bytes": 12047778,
+    "sha256": "69ea27fbdf9711f96a1239ff58fc82e345d0ef5e779e25b12b79cf69170a3453"
+   }
+  },
+  "intensity_pcd_info": {
+   "path": "/mnt/data/v6_regression_final/synth/IBEV_synth.pcd",
+   "fields": [
+    "x",
+    "y",
+    "z",
+    "rgb"
+   ],
+   "sizes": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "types": [
+    "F",
+    "F",
+    "F",
+    "F"
+   ],
+   "counts": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "data_type": "ascii",
+   "header_points": 920000,
+   "chunk_points": 500000,
+   "has_native_intensity": false,
+   "has_rgb": true,
+   "binary_compressed_temp_memmap": false,
+   "valid_points": 920000
+  },
+  "intensity_decode": {
+   "decode_mode": "packed_rgb_grayscale_red",
+   "grayscale_ratio": 1.0,
+   "min": 32.0,
+   "p50": 52.0,
+   "p90": 59.0,
+   "p99": 66.0,
+   "max": 85.0
+  },
+  "pcd_io": {
+   "reader": "PcdChunkReader",
+   "chunk_points": 500000,
+   "supported_data_modes": [
+    "ascii",
+    "binary",
+    "binary_compressed"
+   ],
+   "binary_compressed_strategy": "temporary_memmap_reused_across_passes",
+   "temp_dir": null
+  },
+  "z_pcd": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+  "z_pcd_info": {
+   "path": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+   "fields": [
+    "x",
+    "y",
+    "z",
+    "rgb"
+   ],
+   "sizes": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "types": [
+    "F",
+    "F",
+    "F",
+    "F"
+   ],
+   "counts": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "data_type": "ascii",
+   "header_points": 313234,
+   "chunk_points": 500000,
+   "has_native_intensity": false,
+   "has_rgb": true,
+   "binary_compressed_temp_memmap": false
+  },
+  "rgb_pcd": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+  "rgb_pcd_info": {
+   "path": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+   "fields": [
+    "x",
+    "y",
+    "z",
+    "rgb"
+   ],
+   "sizes": [
+    4,
+    4,
+    4,
+    4
+   ],
+   "types": [
+    "F",
+    "F",
+    "F",
+    "F"
+   ],
+   "counts": [
+    1,
+    1,
+    1,
+    1
+   ],
+   "data_type": "ascii",
+   "header_points": 313234,
+   "chunk_points": 500000,
+   "has_native_intensity": false,
+   "has_rgb": true,
+   "binary_compressed_temp_memmap": false
+  }
+ },
+ "trajectory": {
+  "raw_count": 51,
+  "filtered_count": 51,
+  "dense_count": 401,
+  "length_m": 100.0,
+  "yaw_valid": true,
+  "heading_error_deg_p95": 1.0891495939650016
+ },
+ "intensity": {
+  "aggregation_mode": "fully_streaming_grid",
+  "full_point_arrays_materialized": false,
+  "pcd_passes": 2,
+  "corridor_points": 920000,
+  "surface_points": 918053,
+  "surface_low_k": 3,
+  "surface_base_used_mean": 2.838502428391143,
+  "occupied_cells": 183043,
+  "bg_valid_cells": 183043,
+  "mean_points_per_cell": 5.015504553574843,
+  "topk_used_mean": 2.8363608550996213,
+  "intensity_p50": 53.5,
+  "intensity_p90": 59.66666793823242,
+  "intensity_p99": 66.0,
+  "excess_p50": -0.10606002807617188,
+  "excess_p99": 12.384079933166504,
+  "scale_median": 2.3387038707733154,
+  "sigma_p99": 5.398914337158203,
+  "sigma_p999": 7.027570724487305,
+  "frenet_projection": {
+   "input_points": 920000,
+   "within_corridor_points_before_ambiguity_filter": 920000,
+   "ambiguous_points": 0,
+   "ambiguous_ratio_in_corridor": 0.0,
+   "accepted_points": 920000
+  }
+ },
+ "grid": {
+  "nd": 600,
+  "ns": 401,
+  "d_min": -15.0,
+  "d_resolution": 0.05,
+  "s_resolution": 0.25
+ },
+ "world_bbox": {
+  "x_min": 0.05000000074505806,
+  "x_max": 99.69629669189453,
+  "y_min": -11.49899959564209,
+  "y_max": 17.855300903320312
+ },
+ "parameters": {
+  "intensity_pcd": "/mnt/data/v6_regression_final/synth/IBEV_synth.pcd",
+  "mapping_pose": "/mnt/data/v6_regression_final/synth/mapping_pose_synth.txt",
+  "output": "/mnt/data/v6_regression_final/out/IBEV_stage1.npz",
+  "z_pcd": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+  "rgb_pcd": null,
+  "s_resolution": 0.25,
+  "d_resolution": 0.05,
+  "corridor_half_width": 15.0,
+  "pose_min_step": 0.1,
+  "pose_smooth_window": 31,
+  "frenet_candidates": 12,
+  "frenet_z_weight": 1.5,
+  "frenet_heading_weight": 0.15,
+  "frenet_ambiguity_margin": 0.2,
+  "frenet_ambiguity_s_separation": 8.0,
+  "keep_ambiguous_frenet": false,
+  "surface_band": 0.12,
+  "surface_low_k": 3,
+  "topk": 3,
+  "bg_inner": 0.25,
+  "bg_outer": 0.8,
+  "scale_smooth": 10.0,
+  "scale_floor": 0.5,
+  "z_low_k": 3,
+  "road_fit_half_width": 5.0,
+  "level_inner": 0.2,
+  "level_outer": 0.8,
+  "grad_half_window": 0.15,
+  "pcd_chunk_points": 500000,
+  "aggregation_mode": "streaming",
+  "pcd_temp_dir": null,
+  "progress_json": "/mnt/data/v6_regression_final/out/IBEV_progress.json",
+  "progress_base": 0.02,
+  "progress_span": 0.53,
+  "cancel_file": "/mnt/data/v6_regression_final/out/IBEV.cancel",
+  "quiet": false
+ },
+ "parameter_fingerprint": "c6198a085aef3f8ba8cfee88d29dec04f3af890be53d60f403c440a2466c4f0b",
+ "z": {
+  "aggregation_mode": "fully_streaming_grid",
+  "full_point_arrays_materialized": false,
+  "pcd_passes": 1,
+  "corridor_points": 313234,
+  "occupied_cells": 150306,
+  "cross_slope_median": -2.4794891243599294e-06,
+  "level_diff_p50": 0.020856279879808426,
+  "level_diff_p99": 0.9356268048286438,
+  "grad_p99": 3.1606040000915527,
+  "frenet_projection": {
+   "input_points": 313234,
+   "within_corridor_points_before_ambiguity_filter": 313234,
+   "ambiguous_points": 0,
+   "ambiguous_ratio_in_corridor": 0.0,
+   "accepted_points": 313234
+  }
+ },
+ "rgb": {
+  "aggregation_mode": "fully_streaming_grid",
+  "full_point_arrays_materialized": false,
+  "pcd_passes": 2,
+  "occupied_cells": 150306,
+  "luminance_p50": 92.56599426269531,
+  "luminance_p99": 204.0217742919922,
+  "frenet_projection": {
+   "input_points": 313234,
+   "within_corridor_points_before_ambiguity_filter": 313234,
+   "ambiguous_points": 0,
+   "ambiguous_ratio_in_corridor": 0.0,
+   "accepted_points": 313234
+  },
+  "source": "/mnt/data/v6_regression_final/synth/RGBBEV_synth.pcd",
+  "grayscale_ratio": 0.002937101336381108
+ },
+ "elapsed_sec": 6.57,
+ "output_npz": "/mnt/data/v6_regression_final/out/IBEV_stage1.npz"
+}

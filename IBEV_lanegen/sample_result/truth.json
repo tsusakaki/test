@@ -1,0 +1,82 @@
+{
+ "length_m": 100.0,
+ "lane_lines": [
+  {
+   "d": -8.75,
+   "kind": "solid",
+   "s_start": 0.0,
+   "s_end": 100.0
+  },
+  {
+   "d": -5.25,
+   "kind": "faint",
+   "s_start": 0.0,
+   "s_end": 100.0
+  },
+  {
+   "d": -1.75,
+   "kind": "dashed",
+   "s_start": 0.0,
+   "s_end": 100.0
+  },
+  {
+   "d": 1.75,
+   "kind": "dashed",
+   "s_start": 0.0,
+   "s_end": 100.0
+  },
+  {
+   "d": 5.25,
+   "kind": "solid",
+   "s_start": 0.0,
+   "s_end": 100.0
+  }
+ ],
+ "occlusion": {
+  "d": 1.75,
+  "s_start": 55.0,
+  "s_end": 80.0
+ },
+ "hatch": {
+  "d": [
+   2.45,
+   3.35,
+   4.25
+  ],
+  "s_start": 30.0,
+  "s_end": 45.0
+ },
+ "curb": {
+  "d": [
+   -10.0,
+   10.0
+  ],
+  "height_m": 0.15
+ },
+ "wall": {
+  "d": [
+   -11.0,
+   11.0
+  ],
+  "height_m": 0.95
+ },
+ "expected": {
+  "detected_lane_lines": [
+   -8.75,
+   -1.75,
+   1.75,
+   5.25
+  ],
+  "infill_candidate": -5.25,
+  "faint_contrast_ratio": 0.42,
+  "rejected_as_hatch": [
+   2.45,
+   3.35,
+   4.25
+  ],
+  "curb_boundaries": [
+   -10.0,
+   10.0
+  ]
+ }
+}

@@ -1,0 +1,59 @@
+{
+ "production_version": "5.0.0-production-v5",
+ "status": "COMPLETED",
+ "started_at_utc": "2026-07-25T02:39:32.004581+00:00",
+ "host": "53493937b63e",
+ "pid": 7076,
+ "input_database": "/mnt/data/v5_sqlite_e2e/tasks.sqlite",
+ "output_root": "/mnt/data/v5_sqlite_e2e/output",
+ "database_diagnostics": {
+  "table": "match_result_tasks",
+  "columns": [
+   "bag_datetime_str",
+   "id",
+   "lidar_path",
+   "lidar_source"
+  ],
+  "path_columns_available": [
+   "lidar_path",
+   "lidar_source"
+  ],
+  "path_column_usage": {
+   "lidar_path": 1,
+   "lidar_source": 0
+  },
+  "rows_selected": 1,
+  "unique_result_roots": 1,
+  "invalid_rows": []
+ },
+ "forwarded_lanegen_arguments": [
+  "--pcd-chunk-points",
+  "150000"
+ ],
+ "tasks": [
+  {
+   "result_root": "/mnt/data/v5_sqlite_e2e/input/clip_test/result",
+   "clip_name": "clip_test",
+   "row_ids": [
+    1
+   ],
+   "selected_path_column": "lidar_path",
+   "source_paths": [
+    "/mnt/data/v5_sqlite_e2e/input/clip_test/result/local_pcdbin/total_frame.txt"
+   ],
+   "intensity_pcd": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/mapqr_input/IBEV.pcd",
+   "rgb_pcd": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/mapqr_input/RGBBEV.pcd",
+   "mapping_pose": "/mnt/data/v5_sqlite_e2e/input/clip_test/result/mapping/mapping_pose.txt",
+   "output_container": "/mnt/data/v5_sqlite_e2e/output/group/clip_test_output",
+   "bevld_dir": "/mnt/data/v5_sqlite_e2e/output/group/clip_test_output/work_dir/bevld",
+   "status": "COMPLETED",
+   "message": "LaneGen completed",
+   "return_code": 0,
+   "elapsed_sec": 1.89
+  }
+ ],
+ "completed_at_utc": "2026-07-25T02:39:33.914693+00:00",
+ "counts": {
+  "COMPLETED": 1
+ }
+}

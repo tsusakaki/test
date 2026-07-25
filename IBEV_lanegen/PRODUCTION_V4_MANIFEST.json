@@ -1,0 +1,206 @@
+{
+  "production_version": "4.0.0-production-v4",
+  "created_at_utc": "2026-07-25T01:58:13.299665+00:00",
+  "python_syntax_checked": [
+    "annotator_integration/lane_line_panel.py",
+    "annotator_integration/lanegen_qt_runner.py",
+    "annotator_integration/main_window.py",
+    "install_annotator_integration.py",
+    "lanegen_core.py",
+    "lanegen_evaluate.py",
+    "lanegen_job_control.py",
+    "lanegen_pcd_io.py",
+    "lanegen_qt_runner.py",
+    "lanegen_regression_test.py",
+    "lanegen_run.py",
+    "lanegen_self_check.py",
+    "lanegen_stage1_extract.py",
+    "lanegen_stage2_lines.py",
+    "lanegen_stage3_export.py",
+    "lanegen_streaming.py",
+    "make_synthetic_ibev.py"
+  ],
+  "file_count": 45,
+  "files": {
+    "ANNOTATOR_INTEGRATION_JP.md": {
+      "size_bytes": 2385,
+      "sha256": "5825794b4f463b0da8e0961f8c0be6c74020a3402a3e21e1f35dc4e98ef84dbc"
+    },
+    "PRODUCTION_V1_CHANGELOG.md": {
+      "size_bytes": 1921,
+      "sha256": "ca8db30f504c32841420fdbf827461c3de2d83b26cd434306845b78d3d0790c0"
+    },
+    "PRODUCTION_V1_TEST_REPORT.json": {
+      "size_bytes": 1427,
+      "sha256": "76a0ca8de30408b0914bdabdb65f1b50778450d76288e8f1d8dbabc752a59ae0"
+    },
+    "PRODUCTION_V2_CHANGELOG.md": {
+      "size_bytes": 2300,
+      "sha256": "ad94cfb575c58ea0d4dff3c9860d2911d1a69b1cd439cf7913214497dbcdd026"
+    },
+    "PRODUCTION_V2_TEST_REPORT.json": {
+      "size_bytes": 1839,
+      "sha256": "a9cc21bf1ab00d76a57c907f7e9901aa8914d69b432e659343599aa473d080af"
+    },
+    "PRODUCTION_V3_CHANGELOG.md": {
+      "size_bytes": 2334,
+      "sha256": "1d647d21281eb824865c72c86017bc7cf34d3f59449f6f40eab0623507f148f5"
+    },
+    "PRODUCTION_V3_MANIFEST.json": {
+      "size_bytes": 5462,
+      "sha256": "674af7174b911722ab02a9b09f83afc945d279f3e37acd3ce026e2cf9a4136f1"
+    },
+    "PRODUCTION_V3_TEST_REPORT.json": {
+      "size_bytes": 2263,
+      "sha256": "4dfc3ac1d37903386ce790015cc2870887a1f6a9f27603777d3ceb1a97e7cfb8"
+    },
+    "PRODUCTION_V4_CHANGELOG.md": {
+      "size_bytes": 3713,
+      "sha256": "03c71376274fd95ddf123c5689155aef6793ec630b70cbb6a2bed72f100742db"
+    },
+    "PRODUCTION_V4_TEST_REPORT.json": {
+      "size_bytes": 4081,
+      "sha256": "bdae963df732bafd36099f5137edbd99cbc8a1e4c2da5ecaa8337febf9796527"
+    },
+    "QT_INTEGRATION_JP.md": {
+      "size_bytes": 1303,
+      "sha256": "cb39bb78fc08ad00f67151a9f49d4766328053666728238c62f070e727b3f782"
+    },
+    "README_JP.md": {
+      "size_bytes": 14960,
+      "sha256": "86cd5a9d42ba0b4e510ecb7aaa462983145f25c3f94ebac99af262d7b0d225cc"
+    },
+    "annotator_integration/lane_line_panel.py": {
+      "size_bytes": 219045,
+      "sha256": "61c6a82a985c5f526d234135cb46f541395a282c21902468578d8e8261e35b58"
+    },
+    "annotator_integration/lanegen_qt_runner.py": {
+      "size_bytes": 5597,
+      "sha256": "c053a0672486df002ebf3674a23425651e005dfc0c25c9eed70b41b10728f961"
+    },
+    "annotator_integration/main_window.py": {
+      "size_bytes": 266264,
+      "sha256": "ac6489c5a7b5a0aad92c87aaf5f459b244e4ebd150f75072489f35b3bf62954e"
+    },
+    "install_annotator_integration.py": {
+      "size_bytes": 2018,
+      "sha256": "f555988025648aac292b9947e28079c08bbaa939446ac7fa791fbc3da3dc58e8"
+    },
+    "lanegen_core.py": {
+      "size_bytes": 34694,
+      "sha256": "0377a39cca9f0f827cb251224918ce95d916f820d1361f57cd591f2897557ba5"
+    },
+    "lanegen_evaluate.py": {
+      "size_bytes": 6586,
+      "sha256": "e1deacc329550a408c5de5829ffa0102ec681646d52e9bf1f5b8c26a586eaaf1"
+    },
+    "lanegen_job_control.py": {
+      "size_bytes": 1376,
+      "sha256": "86afb062fa95a07630c3852fd399b86e5625f9cb914d676a0bb24dc918bf7753"
+    },
+    "lanegen_pcd_io.py": {
+      "size_bytes": 22188,
+      "sha256": "5697e131c432f40730a7c2213954659b2c25b20c7a957c26eca1a62a6d4acd5f"
+    },
+    "lanegen_qt_runner.py": {
+      "size_bytes": 5597,
+      "sha256": "c053a0672486df002ebf3674a23425651e005dfc0c25c9eed70b41b10728f961"
+    },
+    "lanegen_regression_test.py": {
+      "size_bytes": 20114,
+      "sha256": "a473e0b9455409657988db0a984a57dca12d07d4cbdbe1b1e860364cfffb5f0d"
+    },
+    "lanegen_run.py": {
+      "size_bytes": 23048,
+      "sha256": "280ee296906bc7dc974ccafe3d2a1af064a16565b6a392a6738e988209764a89"
+    },
+    "lanegen_self_check.py": {
+      "size_bytes": 3386,
+      "sha256": "322d22daa7524a438a5739bdba9446ced4993d157d76e612b3d990854330e460"
+    },
+    "lanegen_stage1_extract.py": {
+      "size_bytes": 35920,
+      "sha256": "9483f5800584b3c448ae62f66e4302bab0acfb8c4f972e2a4625a9110867d91e"
+    },
+    "lanegen_stage2_lines.py": {
+      "size_bytes": 47067,
+      "sha256": "22deb148bbc6ab88eb9202d10b3429a6dd59787c3a68f82c5c1883c023559da0"
+    },
+    "lanegen_stage3_export.py": {
+      "size_bytes": 36504,
+      "sha256": "1549628ebb98474b9db0588ff35772791edcd16502e1f3a52d2d8bdf3e74f110"
+    },
+    "lanegen_streaming.py": {
+      "size_bytes": 23079,
+      "sha256": "ae1b2e2f5b07172d58a20a71644254aab3b7c48f5920a756131a6b0e9e768b3a"
+    },
+    "make_synthetic_ibev.py": {
+      "size_bytes": 9828,
+      "sha256": "5e76a0746c5efb3c38af6f8c338d9c9911d41bbab14718081ce0fb90d1443176"
+    },
+    "requirements.txt": {
+      "size_bytes": 103,
+      "sha256": "a8aa8661df310a8553d1028f87bffe7b1dc667dd0d9f55652728156263aaa1bc"
+    },
+    "sample_result/IBEV.xml": {
+      "size_bytes": 26182,
+      "sha256": "48d9bfdeb40e861fb02ae2eb116405474dd4a198c15eecae05f24cb2a1349808"
+    },
+    "sample_result/IBEV_annotator.json": {
+      "size_bytes": 75193,
+      "sha256": "db58adf5754bc8ca108f2b7024bc5da5b5ca5be15ce8a2ab21ac70e9ddfda049"
+    },
+    "sample_result/IBEV_annotator_main.json": {
+      "size_bytes": 75193,
+      "sha256": "db58adf5754bc8ca108f2b7024bc5da5b5ca5be15ce8a2ab21ac70e9ddfda049"
+    },
+    "sample_result/IBEV_annotator_review.json": {
+      "size_bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "sample_result/IBEV_eval.json": {
+      "size_bytes": 700,
+      "sha256": "9a3be3efd4c8ce92b7f54bc1483a228baad9fd2549f2365c5efc3a8b30ecc972"
+    },
+    "sample_result/IBEV_job_state.json": {
+      "size_bytes": 2256,
+      "sha256": "99b88ffdd209a0008489fe51e989450ff0332e55b4cb725c302a308f2c5181c9"
+    },
+    "sample_result/IBEV_preview.png": {
+      "size_bytes": 314455,
+      "sha256": "06f2738456386917eef5241d210ac8f48f76607158d3f6e3908b86b447433152"
+    },
+    "sample_result/IBEV_progress.json": {
+      "size_bytes": 2256,
+      "sha256": "99b88ffdd209a0008489fe51e989450ff0332e55b4cb725c302a308f2c5181c9"
+    },
+    "sample_result/IBEV_review.xml": {
+      "size_bytes": 4000,
+      "sha256": "958fca24b8c5f644fc89b41d0edd3bbe366ae40000114b26b5d680e5d6a52882"
+    },
+    "sample_result/IBEV_stage1.meta.json": {
+      "size_bytes": 7144,
+      "sha256": "fccdd1423d7fd4b7aa5c5fea83d665504414d430186c00910507ee389bc9a609"
+    },
+    "sample_result/IBEV_stage2.meta.json": {
+      "size_bytes": 11107,
+      "sha256": "fdf9d579c66b6eeeae6d857472288a7f6a8425398460541adf8f51987e449f39"
+    },
+    "sample_result/IBEV_stage3.meta.json": {
+      "size_bytes": 3388,
+      "sha256": "0ec37f547eba953cd8f5f82a344f82a617a6e0f7b7baaa8a11a039f927edf3a7"
+    },
+    "sample_result/IBEV_tracks.csv": {
+      "size_bytes": 3739,
+      "sha256": "abb610698e8a504bb2725b88b86ecdec1cda8d4c0445edb7c1acafe9d4e8dddb"
+    },
+    "sample_result/truth.json": {
+      "size_bytes": 988,
+      "sha256": "9d9d6359accdcaacbfe5434b5abda356382c74b8c7ec9afc1238f5a90743412e"
+    },
+    "sample_result/truth_gt.xml": {
+      "size_bytes": 15733,
+      "sha256": "d1bd149a9201f5abfb2c4020c4172935ed559ef892d3192c4222cbaa605cce65"
+    }
+  }
+}

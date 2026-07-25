@@ -1,0 +1,135 @@
+{
+ "stage": 3,
+ "production_version": "6.0.0-production-v6",
+ "code": {
+  "stage3_sha256": "2563986827ae2311996c0299ba634273f3f3bc235b8e295e1c9db13aea257ded",
+  "core_sha256": "a9bad9c821d4ea09dab15270e93ad24f0468e43497c32a5689bc5700944bb4fa"
+ },
+ "inputs": {
+  "stage1": "/mnt/data/v6_regression_final/out/IBEV_stage1.npz",
+  "stage2": "/mnt/data/v6_regression_final/out/IBEV_stage2.npz",
+  "signatures": {
+   "stage1_npz": {
+    "path": "/mnt/data/v6_regression_final/out/IBEV_stage1.npz",
+    "size_bytes": 5116409,
+    "sha256": "6a2100507f27d451838587c056bec68a52c66e65344ab5ddc6b367e52a324af4"
+   },
+   "stage2_npz": {
+    "path": "/mnt/data/v6_regression_final/out/IBEV_stage2.npz",
+    "size_bytes": 28166,
+    "sha256": "3f15e303e5c76cc986bc49767a7ff7e083c747cd21689aca1cb03b53affab6ed"
+   }
+  }
+ },
+ "rgb_health": {
+  "available": true,
+  "healthy": true,
+  "weight": 0.25,
+  "white_ratio": 0.15334051867523585,
+  "valid_ratio": 0.624713216957606,
+  "luminance_p50": 92.56599426269531,
+  "reason": "健全"
+ },
+ "counts": {
+  "total_tracks": 11,
+  "main_shapes": 8,
+  "review_shapes": 0,
+  "lane": 6,
+  "curb": 2,
+  "hatch_excluded": 3,
+  "solid": 4,
+  "dashed": 2
+ },
+ "geometry_smoothing": {
+  "modes": {
+   "spline": 9,
+   "line": 2
+  },
+  "vertices_before": 2852,
+  "vertices_after": 197,
+  "reduction_ratio": 0.9309256661991585
+ },
+ "xml": {
+  "main": {
+   "shape_count": 8,
+   "outside_vertices": 2,
+   "total_vertices": 184,
+   "image_name": "IBEV.png",
+   "image_meta": {
+    "origin_x": 0.05000000074505806,
+    "origin_y": -11.49899959564209,
+    "resolution": 0.05,
+    "width_px": 1994,
+    "height_px": 589,
+    "source": "stage1 world bbox"
+   }
+  },
+  "review": {
+   "shape_count": 0,
+   "outside_vertices": 0,
+   "total_vertices": 0,
+   "image_name": "IBEV.png",
+   "image_meta": {
+    "origin_x": 0.05000000074505806,
+    "origin_y": -11.49899959564209,
+    "resolution": 0.05,
+    "width_px": 1994,
+    "height_px": 589,
+    "source": "stage1 world bbox"
+   }
+  }
+ },
+ "outputs": {
+  "xml_main": "/mnt/data/v6_regression_final/out/IBEV.xml",
+  "xml_review": "/mnt/data/v6_regression_final/out/IBEV_review.xml",
+  "csv": "/mnt/data/v6_regression_final/out/IBEV_tracks.csv",
+  "annotator_all": "/mnt/data/v6_regression_final/out/IBEV_annotator.json",
+  "annotator_main": "/mnt/data/v6_regression_final/out/IBEV_annotator_main.json",
+  "annotator_review": "/mnt/data/v6_regression_final/out/IBEV_annotator_review.json"
+ },
+ "parameters": {
+  "stage1_npz": "/mnt/data/v6_regression_final/out/IBEV_stage1.npz",
+  "stage2_npz": "/mnt/data/v6_regression_final/out/IBEV_stage2.npz",
+  "output_dir": "/mnt/data/v6_regression_final/out",
+  "stem": "IBEV",
+  "image_meta_json": null,
+  "xml_image_name": null,
+  "output_point_spacing": 5.0,
+  "simplify_tolerance": 0.08,
+  "geometry_smoothing": "auto",
+  "straight_line_tolerance": 0.05,
+  "spline_smoothing_tolerance": 0.04,
+  "curve_approximation_tolerance": 0.05,
+  "smoothing_robust_iterations": 3,
+  "curb_straight_line_tolerance": 0.08,
+  "curb_spline_smoothing_tolerance": 0.06,
+  "curb_curve_approximation_tolerance": 0.08,
+  "confidence_threshold": 0.55,
+  "review_gap_threshold": 30.0,
+  "review_interpolated_ratio": 0.7,
+  "review_unknown_gap_threshold": 30.0,
+  "review_frenet_ambiguity_ratio": 0.03,
+  "review_frenet_ambiguity_run": 1.0,
+  "full_strength_sigma": 6.0,
+  "full_length": 30.0,
+  "lane_spacing_min": 2.75,
+  "lane_spacing_max": 3.9,
+  "curb_step_nominal": 0.15,
+  "curb_step_sigma": 0.07,
+  "rgb_white_ratio_min": 0.004,
+  "rgb_white_ratio_max": 0.25,
+  "rgb_white_luminance": 120.0,
+  "rgb_white_saturation": 0.35,
+  "rgb_yellow_hue_min": 30.0,
+  "rgb_yellow_hue_max": 75.0,
+  "rgb_yellow_saturation": 0.3,
+  "rgb_weight": 0.25,
+  "lane_number_style": "ego",
+  "curb_edge": "gutter",
+  "curb_edge_offset": 0.1,
+  "emit_hatch": false,
+  "no_preview": false
+ },
+ "parameter_fingerprint": "d782c2841b53a31d04de19fbf9576ad891e6692921c83f3fc22d4e87fc41b3d0",
+ "elapsed_sec": 0.32
+}

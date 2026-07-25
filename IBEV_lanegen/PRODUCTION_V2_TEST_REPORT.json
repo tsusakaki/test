@@ -1,0 +1,70 @@
+{
+  "status": "PASS",
+  "production_version": "2.0.0-production-v2",
+  "frenet_ambiguity_test": {
+    "crossing_ambiguous_dropped": true,
+    "ordinary_point_kept": true
+  },
+  "long_gap_bridge_test": {
+    "crossing_bridge_rejected": true,
+    "rejected_count": 1
+  },
+  "lane": {
+    "pred_polylines": 6,
+    "gt_polylines": 5,
+    "recall": 0.9196,
+    "precision": 1.0,
+    "lateral_rmse_m": 0.0287,
+    "lateral_p95_m": 0.0581,
+    "fragments_per_gt_line": [
+      2,
+      1,
+      1,
+      1,
+      1
+    ],
+    "mean_fragments": 1.2,
+    "per_gt_recall": [
+      0.98,
+      0.912,
+      0.833,
+      0.873,
+      1.0
+    ]
+  },
+  "curb": {
+    "pred_polylines": 2,
+    "gt_polylines": 2,
+    "recall": 0.8725,
+    "precision": 0.9025,
+    "lateral_rmse_m": 0.0856,
+    "lateral_p95_m": 0.1754,
+    "fragments_per_gt_line": [
+      1,
+      1
+    ],
+    "mean_fragments": 1.0,
+    "per_gt_recall": [
+      0.833,
+      0.912
+    ]
+  },
+  "annotator_schema": {
+    "records": 8,
+    "ids_unique": 8,
+    "auto_ids_unique": 8
+  },
+  "deterministic_hashes": {
+    "xml": "48d9bfdeb40e861fb02ae2eb116405474dd4a198c15eecae05f24cb2a1349808",
+    "annotator": "8b6142129454e560c2512a4a3f1adf610cf9c3ba902cd88da5138a75adc43922"
+  },
+  "verified_at_utc": "2026-07-24T16:51:37.188615+00:00",
+  "scope": {
+    "synthetic_end_to_end": true,
+    "frenet_crossing_ambiguity_unit_test": true,
+    "long_gap_bridge_crossing_unit_test": true,
+    "deterministic_cache_reuse": true,
+    "real_IBEV_runtime_in_this_container": false,
+    "note_ja": "合成PCDによるStage1/2/3、交差分岐曖昧性、長距離橋渡し交差拒否、Stage1キャッシュ再利用時の決定性を確認。過去添付の実IBEV.pcd/RGBBEV.pcdは現在の実行コンテナにマウントされていないため、実データ最終調整は未実施。"
+  }
+}

@@ -1,0 +1,46 @@
+{
+ "tolerance_m": 0.2,
+ "sample_step_m": 1.0,
+ "labels": {
+  "lane_line": {
+   "pred_polylines": 6,
+   "gt_polylines": 5,
+   "recall": 0.9196,
+   "precision": 1.0,
+   "lateral_rmse_m": 0.0418,
+   "lateral_p95_m": 0.0773,
+   "fragments_per_gt_line": [
+    2,
+    1,
+    1,
+    1,
+    1
+   ],
+   "mean_fragments": 1.2,
+   "per_gt_recall": [
+    0.98,
+    0.912,
+    0.833,
+    0.873,
+    1.0
+   ]
+  },
+  "curb_boundary": {
+   "pred_polylines": 2,
+   "gt_polylines": 2,
+   "recall": 0.8922,
+   "precision": 0.9059,
+   "lateral_rmse_m": 0.0844,
+   "lateral_p95_m": 0.1636,
+   "fragments_per_gt_line": [
+    1,
+    1
+   ],
+   "mean_fragments": 1.0,
+   "per_gt_recall": [
+    0.912,
+    0.873
+   ]
+  }
+ }
+}
