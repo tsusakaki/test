@@ -1,3 +1,20 @@
+# IBEV LaneGen Production V8
+
+現在のProduction Versionは **8.0.0-production-v8** です。
+
+Production V8では、反射強度から白線を取り出す部分を作り直しました。
+Stage1のセル値がセル内点数に依存していた問題 (点数だけで25カウントの
+系統誤差) と、ロバストスケールを回廊全幅30mで取っていた問題を修正し、
+Stage2の実線/破線判定を「検出の途切れ」ではなく「塗装の周期」を測る
+ものに変えています。
+
+- `PRODUCTION_V8_CHANGELOG.md` — 計測値つきの詳細と v7 互換フラグ
+
+**注意**: `i_sigma` の正規化が変わったため、v7以前のStage1 NPZは
+再利用されません。`--resume` 使用時もStage1が一度だけ再計算されます。
+
+---
+
 # IBEV LaneGen Production V7
 
 Production V7では、反射強度Laneを優先保持したまま、

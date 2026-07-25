@@ -65,6 +65,17 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="自動モードで、検出Lane総延長/軌跡長がこの値未満ならRGB補完")
     g.add_argument("--rgb-auto-min-tracks-per-100m", type=float, default=1.0,
                    help="自動モードで、100m当たりLane本数がこの値未満ならRGB補完")
+    g.add_argument("--rgb-auto-min-coverage", type=float, default=0.75,
+                   help="自動モードで、Lane被覆率の中央値がこの値未満ならRGB補完")
+    g.add_argument("--rgb-auto-min-on-length", type=float, default=1.5,
+                   help="自動モードで、ON区間長の中央値がこの値[m]未満ならRGB補完")
+    g.add_argument("--rgb-scale-mode", choices=["local", "row"],
+                   default="local",
+                   help="RGBコントラストの散布度を局所窓で取るか s列全幅か")
+    g.add_argument("--rgb-scale-d", type=float, default=3.0,
+                   help="RGB局所散布度窓の d 方向半幅 [m]")
+    g.add_argument("--rgb-scale-s", type=float, default=25.0,
+                   help="RGB局所散布度窓の s 方向半幅 [m]")
     g.add_argument("--rgb-sigma-threshold", type=float, default=6.0,
                    help="局所背景に対するRGB輝度コントラスト閾値 [sigma]")
     g.add_argument("--rgb-strong-sigma-threshold", type=float, default=9.0,
@@ -142,10 +153,18 @@ def parse_args(argv=None) -> argparse.Namespace:
 
     g = p.add_argument_group("線種判定")
     g.add_argument("--solid-coverage", type=float, default=0.75)
+    g.add_argument("--dash-close-gap", type=float, default=1.25,
+                   help="ラン長を測る前に埋める検出途切れの最大長 [m]")
+    g.add_argument("--solid-max-run-ratio", type=float, default=0.6,
+                   help="最長ON区間が全長のこの割合以上なら実線と判定")
+    g.add_argument("--dash-regularity", type=float, default=0.6,
+                   help="破線と認める ON長・周期 の変動係数の上限")
     g.add_argument("--dash-min-runs", type=int, default=3)
-    g.add_argument("--dash-on-min", type=float, default=0.5)
+    g.add_argument("--dash-on-min", type=float, default=2.0,
+                   help="破線ダッシュとして認める最小ON長 [m]")
     g.add_argument("--dash-on-max", type=float, default=12.0)
-    g.add_argument("--dash-off-min", type=float, default=0.5)
+    g.add_argument("--dash-off-min", type=float, default=2.0,
+                   help="破線の空白として認める最小OFF長 [m]")
     g.add_argument("--dash-off-max", type=float, default=15.0)
 
     g = p.add_argument_group("レーン構造")
@@ -236,11 +255,18 @@ def build_rgb_lane_evidence(npz, d_res: float, s_res: float,
         lum, occ, inner_cells=inner, outer_cells=outer, axis=0)
     valid = occ & np.isfinite(bg) & (bg_count >= 4)
     excess = np.where(valid, lum - bg, 0.0).astype(np.float32)
-    smooth_cells = max(1, int(round(a.rgb_scale_smooth / s_res)))
-    scale_s = core.row_robust_scale(
-        excess, valid, smooth_cells=smooth_cells,
-        floor_value=a.rgb_scale_floor)
-    sigma = np.where(valid, excess / scale_s[None, :], 0.0).astype(np.float32)
+    if a.rgb_scale_mode == "local":
+        scale = core.local_robust_scale(
+            excess, valid,
+            d_cells=max(1, int(round(a.rgb_scale_d / d_res))),
+            s_cells=max(1, int(round(a.rgb_scale_s / s_res))),
+            floor_value=a.rgb_scale_floor)
+    else:
+        smooth_cells = max(1, int(round(a.rgb_scale_smooth / s_res)))
+        scale = core.row_robust_scale(
+            excess, valid, smooth_cells=smooth_cells,
+            floor_value=a.rgb_scale_floor)[None, :]
+    sigma = np.where(valid, excess / scale, 0.0).astype(np.float32)
 
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     white = ((sat <= a.rgb_max_white_saturation)
@@ -762,6 +788,56 @@ def _valid_observation_runs(observed: np.ndarray, valid: np.ndarray
     return on_cells, off_cells
 
 
+def _close_short_gaps(observed: np.ndarray, max_cells: int) -> np.ndarray:
+    """内部の短い OFF を埋める。両端の OFF は線の外側なので埋めない。
+
+    反射強度の検出は 1〜2 セル単位で途切れる。IBEV 実測では 16 本すべての
+    レーンで生の median_on が 0.25〜0.75m (1〜3 セル) しかなく、実線と破線
+    の区別が「OFF が 1 セルか 2 セルか」で決まってしまっていた。ラン長を
+    測る前に検出の途切れを埋めることで、塗装の周期そのものを見る。
+    """
+    flags = np.asarray(observed, dtype=bool)
+    if max_cells <= 0 or not flags.any():
+        return flags.copy()
+    out = flags.copy()
+    position = 0
+    runs = _runs(flags)
+    for k, (flag, cells) in enumerate(runs):
+        if (not flag) and 0 < k < len(runs) - 1 and cells <= max_cells:
+            out[position:position + cells] = True
+        position += cells
+    return out
+
+
+def _baseline_fragmentation(tracks: list["Track"], s_res: float
+                            ) -> tuple[float, float]:
+    """RGB補完の自動判定用に、反射強度だけで得た線の断片化度合いを測る。"""
+    coverages: list[float] = []
+    on_lengths: list[float] = []
+    for t in tracks:
+        valid = t.valid_support
+        if len(valid) != t.span:
+            valid = np.ones(t.span, dtype=bool)
+        observed_valid = np.asarray(t.observed, dtype=bool) & valid
+        if valid.any():
+            coverages.append(float(observed_valid.sum()) / float(valid.sum()))
+        on_cells, _ = _valid_observation_runs(observed_valid, valid)
+        on_lengths.extend(n * s_res for n in on_cells)
+    return (float(np.median(coverages)) if coverages else 0.0,
+            float(np.median(on_lengths)) if on_lengths else 0.0)
+
+
+def _coefficient_of_variation(values: list[float]) -> float:
+    """変動係数。実在の破線は周期が揃うが、検出の途切れは揃わない。"""
+    if len(values) < 2:
+        return 0.0
+    arr = np.asarray(values, dtype=np.float64)
+    mean = float(arr.mean())
+    if mean <= 0:
+        return float("inf")
+    return float(arr.std() / mean)
+
+
 def attach_valid_support(track: Track, valid_grid: np.ndarray,
                          d_axis: np.ndarray, d_res: float) -> None:
     rows = np.clip(np.round((track.d - d_axis[0]) / d_res).astype(int),
@@ -795,7 +871,14 @@ def classify_line_type(track: Track, s_res: float,
     observed = np.asarray(track.observed, dtype=bool)
     observed_valid = observed & valid
 
-    on_cells, off_cells = _valid_observation_runs(observed_valid, valid)
+    raw_on_cells, raw_off_cells = _valid_observation_runs(observed_valid, valid)
+    raw_on = [n * s_res for n in raw_on_cells]
+    raw_off = [n * s_res for n in raw_off_cells]
+
+    # 塗装の周期は、検出の途切れを埋めてから測る。
+    close_cells = max(0, int(round(a.dash_close_gap / s_res)))
+    closed = _close_short_gaps(observed_valid, close_cells) & valid
+    on_cells, off_cells = _valid_observation_runs(closed, valid)
     on = [n * s_res for n in on_cells]
     off = [n * s_res for n in off_cells]
 
@@ -806,6 +889,14 @@ def classify_line_type(track: Track, s_res: float,
     interpolated = ~observed
     valid_gap = valid & ~observed
     unknown_gap = ~valid
+
+    closed_on_valid = (float(closed.sum()) / float(valid.sum())
+                       if valid.any() else 0.0)
+    max_on_m = max(on) if on else 0.0
+    span_m = float(track.span * s_res)
+    period = [on[i] + off[i] for i in range(min(len(on), len(off)))]
+    on_cv = _coefficient_of_variation(on)
+    period_cv = _coefficient_of_variation(period)
 
     track.features.update({
         "coverage": observed_on_valid,
@@ -819,17 +910,32 @@ def classify_line_type(track: Track, s_res: float,
         "max_gap_m": float(_max_true_run(interpolated) * s_res),
         "max_valid_gap_m": float(_max_true_run(valid_gap) * s_res),
         "max_unknown_gap_m": float(_max_true_run(unknown_gap) * s_res),
+        # 途切れを埋める前の生の値。断片化の度合いを診断するために残す。
+        "raw_on_run_count": len(raw_on),
+        "raw_median_on_m": float(np.median(raw_on)) if raw_on else 0.0,
+        "raw_median_off_m": float(np.median(raw_off)) if raw_off else 0.0,
+        "closed_coverage": closed_on_valid,
+        "max_on_m": max_on_m,
+        "on_cv": on_cv,
+        "period_cv": period_cv,
     })
 
-    if observed_on_valid >= a.solid_coverage:
+    # 1本の長い連続塗装があるなら、途中の欠測に関係なく実線。
+    if span_m > 0 and max_on_m >= a.solid_max_run_ratio * span_m:
         track.line_type = "Solid_line"
         return
+    if closed_on_valid >= a.solid_coverage:
+        track.line_type = "Solid_line"
+        return
+    # 実在の破線は周期が揃う。検出の途切れは揃わないので変動係数で弾く。
     if (len(on) >= a.dash_min_runs and off
             and a.dash_on_min <= np.median(on) <= a.dash_on_max
-            and a.dash_off_min <= np.median(off) <= a.dash_off_max):
+            and a.dash_off_min <= np.median(off) <= a.dash_off_max
+            and on_cv <= a.dash_regularity
+            and period_cv <= a.dash_regularity):
         track.line_type = "Dashed_line"
         return
-    track.line_type = "Solid_line" if observed_on_valid >= 0.5 else "Uncertain"
+    track.line_type = "Solid_line" if closed_on_valid >= 0.5 else "Uncertain"
 
 
 # =============================================================================
@@ -1051,6 +1157,11 @@ def run(a: argparse.Namespace) -> dict:
     baseline_span_ratio = baseline_span_m / trajectory_length_m
     baseline_tracks_per_100m = (
         len(lane_tracks) * 100.0 / trajectory_length_m)
+    baseline_coverage, baseline_on_m = _baseline_fragmentation(
+        lane_tracks, s_res)
+    # 総延長と本数だけでは、線が引けていても中身がスカスカな状態を
+    # 見逃す。IBEV 実測では span_ratio 1.64・2.78本/100m と健全に見える
+    # 一方で、median coverage 0.66・median ON長 0.5m まで断片化していた。
     use_rgb = (
         a.rgb_lane_fusion == "on"
         or (
@@ -1059,6 +1170,8 @@ def run(a: argparse.Namespace) -> dict:
                 baseline_span_ratio < a.rgb_auto_min_span_ratio
                 or baseline_tracks_per_100m
                 < a.rgb_auto_min_tracks_per_100m
+                or baseline_coverage < a.rgb_auto_min_coverage
+                or baseline_on_m < a.rgb_auto_min_on_length
             )
         )
     )
@@ -1068,6 +1181,8 @@ def run(a: argparse.Namespace) -> dict:
         "baseline_span_m": baseline_span_m,
         "baseline_span_ratio": baseline_span_ratio,
         "baseline_tracks_per_100m": baseline_tracks_per_100m,
+        "baseline_median_coverage": baseline_coverage,
+        "baseline_median_on_m": baseline_on_m,
     }
     if use_rgb:
         rgb_mask, rgb_sigma, rgb_valid, evidence_stats = (

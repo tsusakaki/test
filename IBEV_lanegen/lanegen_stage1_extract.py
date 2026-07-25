@@ -93,6 +93,23 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="ロバスト散布度をs方向に平滑化する長さ [m]")
     g.add_argument("--scale-floor", type=float, default=0.5,
                    help="散布度の下限 (0除算と過剰増幅の防止)")
+    g.add_argument("--no-intensity-count-debias", dest="intensity_count_debias",
+                   action="store_false",
+                   help="セル内点数によるtop-k meanの偏りを補正しない (v7互換)")
+    g.set_defaults(intensity_count_debias=True)
+    g.add_argument("--no-intensity-weighted-background",
+                   dest="intensity_weighted_background", action="store_false",
+                   help="annulus背景を点数重み付きではなくセル平均で取る (v7互換)")
+    g.set_defaults(intensity_weighted_background=True)
+    g.add_argument("--intensity-pool-s", type=float, default=1.25,
+                   help="超過量算出前にs方向へかける重み付き移動平均長 [m]")
+    g.add_argument("--intensity-scale-mode", choices=["local", "row"],
+                   default="local",
+                   help="散布度を局所窓で取るか、s列全幅で取るか (row=v7互換)")
+    g.add_argument("--intensity-scale-d", type=float, default=3.0,
+                   help="局所散布度窓の d 方向半幅 [m]")
+    g.add_argument("--intensity-scale-s", type=float, default=25.0,
+                   help="局所散布度窓の s 方向半幅 [m]")
 
     g = p.add_argument_group("標高・段差")
     g.add_argument("--z-low-k", type=int, default=3,
@@ -212,20 +229,25 @@ def build_intensity_evidence(xyz: np.ndarray, intensity: np.ndarray,
     count = np.bincount(flat_s, minlength=ncell).reshape(nd, ns).astype(np.int32)
     occupied = count > 0
 
-    # --- annulus 背景 (中央除外) と超過量
+    # --- 点数バイアス補正 -> s方向プール -> annulus 背景 -> 局所スケール
     inner = _cells(a.bg_inner, a.d_resolution)
     outer = _cells(a.bg_outer, a.d_resolution)
-    i_bg, bg_n = core.annulus_background(i_topk, occupied, inner, outer, axis=0)
-    bg_valid = np.isfinite(i_bg) & (bg_n >= 4) & occupied
-    i_excess = np.where(bg_valid, i_topk - np.nan_to_num(i_bg), 0.0
-                        ).astype(np.float32)
-
-    # --- s 列ごとのロバスト散布度で正規化
-    smooth_cells = _cells(a.scale_smooth, a.s_resolution)
-    scale = core.row_robust_scale(i_excess, bg_valid, smooth_cells,
-                                  a.scale_floor)
-    i_sigma = (i_excess / scale[None, :]).astype(np.float32)
-    i_sigma[~bg_valid] = 0.0
+    evidence = core.build_intensity_sigma(
+        i_topk, count, k_count.reshape(nd, ns),
+        inner_cells=inner, outer_cells=outer,
+        scale_smooth_cells=_cells(a.scale_smooth, a.s_resolution),
+        scale_floor=a.scale_floor,
+        pool_s_cells=_cells(a.intensity_pool_s, a.s_resolution),
+        count_debias=a.intensity_count_debias,
+        weighted_background=a.intensity_weighted_background,
+        scale_mode=a.intensity_scale_mode,
+        scale_d_cells=_cells(a.intensity_scale_d, a.d_resolution),
+        scale_s_cells=_cells(a.intensity_scale_s, a.s_resolution))
+    i_bg = evidence["i_bg"]
+    i_excess = evidence["i_excess"]
+    i_sigma = evidence["i_sigma"]
+    bg_valid = evidence["bg_valid"]
+    scale = evidence["i_scale_s"]
 
     valid_vals = i_topk[occupied]
     stats = {
@@ -255,6 +277,7 @@ def build_intensity_evidence(xyz: np.ndarray, intensity: np.ndarray,
             if bg_valid.any() else 0.0,
         "sigma_p999": float(np.percentile(i_sigma[bg_valid], 99.9))
             if bg_valid.any() else 0.0,
+        "normalization": evidence["diagnostics"],
         "frenet_projection": _projection_stats(proj),
     }
     print(f"[info] intensity p50={stats['intensity_p50']:.1f} "
@@ -264,9 +287,11 @@ def build_intensity_evidence(xyz: np.ndarray, intensity: np.ndarray,
 
     return {
         "occupied": occupied, "count": count, "i_topk": i_topk,
-        "i_bg": np.nan_to_num(i_bg).astype(np.float32),
+        "i_bg": i_bg,
         "i_excess": i_excess, "i_sigma": i_sigma,
+        "i_scale": evidence["i_scale"],
         "i_scale_s": scale, "bg_valid": bg_valid,
+        "i_count_debias": evidence["count_debias_table"],
         "frenet_ambiguous": ambiguous_grid,
         "frenet_ambiguous_count": ambiguous_count.astype(np.int32),
         "_stats": stats,

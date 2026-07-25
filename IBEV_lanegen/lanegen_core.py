@@ -44,7 +44,7 @@ from lanegen_pcd_io import (
     read_pcd_header,
 )
 
-PRODUCTION_VERSION = "7.0.0-production-v7"
+PRODUCTION_VERSION = "8.0.0-production-v8"
 
 __all__ = [
     "PRODUCTION_VERSION",
@@ -66,7 +66,12 @@ __all__ = [
     "project_to_frenet",
     "groupwise_topk_mean",
     "annulus_background",
+    "annulus_background_weighted",
     "row_robust_scale",
+    "local_robust_scale",
+    "count_bias_table",
+    "pool_along_s",
+    "build_intensity_sigma",
     "rdp",
     "resample_max_spacing",
     "meter_to_cvat_pixel",
@@ -632,6 +637,279 @@ def row_robust_scale(excess: np.ndarray, mask: np.ndarray,
         padded = np.pad(scale, pad, mode="edge")
         scale = np.convolve(padded, kernel, mode="same")[pad:pad + ns]
     return np.maximum(scale, floor_value).astype(np.float32)
+
+
+def _box_sum_2d(values: np.ndarray, d_cells: int, s_cells: int) -> np.ndarray:
+    """(2*d_cells+1) x (2*s_cells+1) の矩形窓合計を積分画像で求める。"""
+    v = np.asarray(values, dtype=np.float64)
+    nd, ns = v.shape
+    integral = np.zeros((nd + 1, ns + 1), dtype=np.float64)
+    np.cumsum(np.cumsum(v, axis=0), axis=1, out=integral[1:, 1:])
+    d0 = np.clip(np.arange(nd) - d_cells, 0, nd)
+    d1 = np.clip(np.arange(nd) + d_cells + 1, 0, nd)
+    s0 = np.clip(np.arange(ns) - s_cells, 0, ns)
+    s1 = np.clip(np.arange(ns) + s_cells + 1, 0, ns)
+    return (integral[np.ix_(d1, s1)] - integral[np.ix_(d0, s1)]
+            - integral[np.ix_(d1, s0)] + integral[np.ix_(d0, s0)])
+
+
+def local_robust_scale(excess: np.ndarray, mask: np.ndarray,
+                       d_cells: int, s_cells: int,
+                       floor_value: float = 0.5,
+                       min_samples: int = 64,
+                       trim_sigma: float = 3.0) -> np.ndarray:
+    """
+    (d, s) の局所窓で excess の散布度を求め、同形状の 2-D スケールを返す。
+
+    row_robust_scale は s 列ごとに回廊全幅 (既定 30m) の MAD を取るため、
+    歩道・法面・植栽・停車車両が舗装面の散布度に混入する。実測では |d| 帯
+    ごとの MAD が 13.6〜27.8 とばらつき、広い帯の値に引きずられた全幅
+    スケールが舗装面の塗装コントラストを埋めてしまう。局所窓にすると
+    白線位置での実効 SNR が 2.11σ から 3.15σ に上がる。
+
+    中央値ではなく平均絶対偏差を使い (1.2533 倍で σ 換算)、塗装セルが
+    局所平均を押し上げる分は trim_sigma による 1 回の外れ値除去で戻す。
+    積分画像を使うので窓サイズによらず O(nd*ns)。
+    """
+    m = np.asarray(mask, dtype=bool)
+    x = np.where(m, np.asarray(excess, dtype=np.float64), 0.0)
+    w = m.astype(np.float64)
+
+    n = _box_sum_2d(w, d_cells, s_cells)
+    mean = _box_sum_2d(x, d_cells, s_cells) / np.maximum(n, 1.0)
+    dev = np.where(m, np.abs(x - mean), 0.0)
+    mad = _box_sum_2d(dev, d_cells, s_cells) / np.maximum(n, 1.0)
+    scale = 1.2533 * mad
+
+    if trim_sigma > 0:
+        keep = m & (dev <= trim_sigma * np.maximum(scale, floor_value))
+        kw = keep.astype(np.float64)
+        n2 = _box_sum_2d(kw, d_cells, s_cells)
+        mean2 = (_box_sum_2d(np.where(keep, x, 0.0), d_cells, s_cells)
+                 / np.maximum(n2, 1.0))
+        dev2 = np.where(keep, np.abs(x - mean2), 0.0)
+        mad2 = _box_sum_2d(dev2, d_cells, s_cells) / np.maximum(n2, 1.0)
+        refined = 1.2533 * mad2
+        scale = np.where(n2 >= min_samples, refined, scale)
+
+    # 標本が足りない窓は s 列全体の値で埋める。
+    fallback = row_robust_scale(excess, m, smooth_cells=1,
+                                floor_value=floor_value)
+    scale = np.where(n >= min_samples, scale, fallback[None, :])
+    return np.maximum(scale, floor_value).astype(np.float32)
+
+
+def _weighted_running_sum(values: np.ndarray, weights: np.ndarray,
+                          lo: int, hi: int, axis: int = 0
+                          ) -> tuple[np.ndarray, np.ndarray]:
+    """axis 方向 [i+lo, i+hi] 窓の重み付き合計と重み合計。累積和で O(N)。"""
+    v = (np.asarray(values, dtype=np.float64)
+         * np.asarray(weights, dtype=np.float64))
+    w = np.asarray(weights, dtype=np.float64)
+    if axis != 0:
+        v = np.moveaxis(v, axis, 0)
+        w = np.moveaxis(w, axis, 0)
+    n = v.shape[0]
+    cv = np.concatenate([np.zeros((1,) + v.shape[1:]), np.cumsum(v, axis=0)])
+    cw = np.concatenate([np.zeros((1,) + w.shape[1:]), np.cumsum(w, axis=0)])
+    idx = np.arange(n)
+    a = np.clip(idx + lo, 0, n)
+    b = np.clip(idx + hi + 1, 0, n)
+    sv = cv[b] - cv[a]
+    sw = cw[b] - cw[a]
+    if axis != 0:
+        sv = np.moveaxis(sv, 0, axis)
+        sw = np.moveaxis(sw, 0, axis)
+    return sv, sw
+
+
+def annulus_background_weighted(values: np.ndarray, weights: np.ndarray,
+                                inner_cells: int, outer_cells: int,
+                                axis: int = 0
+                                ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    annulus_background の重み付き版。
+
+    セル値の単純平均ではなく点数重み付き平均を背景とする。セルごとの
+    推定量が点数に依存する以上、背景側もセル単位ではなく点単位で平均
+    しないと、中心セルと背景セルの点数分布の差がそのまま超過量に残る。
+
+    Returns
+    -------
+    background  : 同形状 float32 (有効近傍が無い場所は nan)
+    weight_sum  : 同形状 float64  背景に寄与した重みの合計
+    cell_count  : 同形状 int32    背景に寄与したセル数
+    """
+    sv_out, sw_out = _weighted_running_sum(values, weights,
+                                           -outer_cells, outer_cells, axis)
+    sv_in, sw_in = _weighted_running_sum(values, weights,
+                                         -inner_cells, inner_cells, axis)
+    sv = sv_out - sv_in
+    sw = sw_out - sw_in
+
+    occupied = np.asarray(weights, dtype=np.float64) > 0
+    _, cn_out = _masked_running_sum(occupied, occupied,
+                                    -outer_cells, outer_cells, axis)
+    _, cn_in = _masked_running_sum(occupied, occupied,
+                                   -inner_cells, inner_cells, axis)
+    cells = cn_out - cn_in
+
+    bg = np.full(np.shape(values), np.nan, dtype=np.float32)
+    ok = sw > 0
+    bg[ok] = (sv[ok] / sw[ok]).astype(np.float32)
+    return bg, sw, cells.astype(np.int32)
+
+
+def count_bias_table(values: np.ndarray, counts: np.ndarray,
+                     occupied: np.ndarray, inner_cells: int,
+                     outer_cells: int, min_samples: int = 200
+                     ) -> np.ndarray:
+    """
+    セル内点数に対するセル値の系統的な偏りを推定する。
+
+    top-k mean は点数に依存する推定量で、点数 1 のセルは「1 点そのもの」、
+    点数 10 のセルは「上位 3 点の平均」になる。実測 (IBEV, 754k 点) では
+    背景セルの中央値が点数 1 で -11.3、点数 5 で +10.0 と 24 カウントも
+    振れる。白線の実超過量が 20〜45 カウントなので、信号と同じ大きさの
+    偽信号を注入していることになる。
+
+    背景セルの残差中央値を点数ごとに取って補正量とする。塗装セルは全体の
+    数%しかないので中央値なら汚染されない。標本が足りない点数は直前の値を
+    引き継ぐ (点数が増えるほど推定量が飽和するため)。
+
+    Returns
+    -------
+    table : (max_count+1,) float32   table[c] を値から引くと補正済み。
+    """
+    occ = np.asarray(occupied, dtype=bool)
+    cnt = np.asarray(counts, dtype=np.int64)
+    bg, n_used = annulus_background(values, occ, inner_cells, outer_cells,
+                                    axis=0)
+    usable = occ & np.isfinite(bg) & (n_used >= 4)
+    residual = np.where(usable, values - np.nan_to_num(bg), 0.0)
+
+    max_count = int(cnt[occ].max()) if occ.any() else 0
+    table = np.zeros(max_count + 1, dtype=np.float64)
+    previous = 0.0
+    for c in range(1, max_count + 1):
+        sel = usable & (cnt == c)
+        if int(sel.sum()) >= min_samples:
+            previous = float(np.median(residual[sel]))
+        table[c] = previous
+    return table.astype(np.float32)
+
+
+def pool_along_s(values: np.ndarray, weights: np.ndarray, cells: int
+                 ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    s 方向にだけ重み付き移動平均をかける。
+
+    白線は s 方向に連続するので、s 方向の平均は塗装を鈍らせずに 1 セル
+    あたりの実効点数を増やせる。d 方向には広げない (塗装幅 0.15m が
+    潰れるため)。IBEV 実測では有効セル率が 0.836 から 0.97 に上がる。
+
+    Returns
+    -------
+    pooled_value  : 窓内の点数重み付き平均 (重みが 0 の場所は 0)
+    pooled_weight : 窓内の重み合計
+    """
+    if cells <= 1:
+        w = np.asarray(weights, dtype=np.float64)
+        return np.asarray(values, dtype=np.float64), w
+    half = int(cells) // 2
+    sv, sw = _weighted_running_sum(values, weights, -half, half, axis=1)
+    pooled = np.zeros_like(sv)
+    ok = sw > 0
+    pooled[ok] = sv[ok] / sw[ok]
+    return pooled, sw
+
+
+def build_intensity_sigma(i_topk: np.ndarray, count: np.ndarray,
+                          k_used: np.ndarray, *,
+                          inner_cells: int, outer_cells: int,
+                          scale_smooth_cells: int, scale_floor: float,
+                          pool_s_cells: int = 1,
+                          count_debias: bool = True,
+                          weighted_background: bool = True,
+                          scale_mode: str = "local",
+                          scale_d_cells: int = 60,
+                          scale_s_cells: int = 100,
+                          min_bg_cells: int = 4,
+                          min_weight: float = 1.0) -> dict:
+    """
+    セル集計済みの反射強度から σ マップを作る共通処理。
+
+    stage1 の一括経路とストリーミング経路が同じ結果を出すよう、両者から
+    この関数を呼ぶ。既定は改善後の挙動 (点数バイアス補正 + s 方向プール +
+    局所スケール)。scale_mode="row", count_debias=False, pool_s_cells=1 に
+    すると v7 までと同じ計算になる。
+    """
+    topk = np.asarray(i_topk, dtype=np.float64)
+    cnt = np.asarray(count, dtype=np.int64)
+    occupied = cnt > 0
+    weight = np.where(occupied, np.asarray(k_used, dtype=np.float64), 0.0)
+
+    debias = np.zeros(1, dtype=np.float32)
+    if count_debias:
+        debias = count_bias_table(topk, cnt, occupied, inner_cells,
+                                  outer_cells)
+        index = np.clip(cnt, 0, len(debias) - 1)
+        topk = np.where(occupied, topk - debias[index], 0.0)
+
+    value, pooled_weight = pool_along_s(topk, weight, pool_s_cells)
+
+    if weighted_background:
+        bg, _, bg_cells = annulus_background_weighted(
+            value, pooled_weight, inner_cells, outer_cells, axis=0)
+    else:
+        bg, bg_cells = annulus_background(
+            value, pooled_weight > 0, inner_cells, outer_cells, axis=0)
+    bg_valid = (np.isfinite(bg) & (bg_cells >= min_bg_cells)
+                & (pooled_weight >= min_weight))
+    excess = np.where(bg_valid, value - np.nan_to_num(bg), 0.0
+                      ).astype(np.float32)
+
+    if scale_mode == "local":
+        scale = local_robust_scale(excess, bg_valid, scale_d_cells,
+                                   scale_s_cells, scale_floor)
+    else:
+        scale_s = row_robust_scale(excess, bg_valid, scale_smooth_cells,
+                                   scale_floor)
+        scale = np.broadcast_to(scale_s[None, :], excess.shape)
+    scale = np.maximum(np.asarray(scale, dtype=np.float32), scale_floor)
+
+    sigma = (excess / scale).astype(np.float32)
+    sigma[~bg_valid] = 0.0
+
+    # 後方互換のため s プロファイルも残す (d 方向の中央値)。
+    scale_s_profile = np.median(scale, axis=0).astype(np.float32)
+
+    diagnostics = {
+        "count_debias": bool(count_debias),
+        "count_debias_span": (float(debias.max() - debias.min())
+                              if count_debias and debias.size > 1 else 0.0),
+        "weighted_background": bool(weighted_background),
+        "pool_s_cells": int(pool_s_cells),
+        "scale_mode": str(scale_mode),
+        "scale_d_cells": int(scale_d_cells),
+        "scale_s_cells": int(scale_s_cells),
+        "scale_median": float(np.median(scale)),
+        "scale_p10": float(np.percentile(scale, 10)),
+        "scale_p90": float(np.percentile(scale, 90)),
+        "bg_valid_ratio": float(bg_valid.mean()),
+    }
+
+    return {
+        "diagnostics": diagnostics,
+        "i_bg": np.nan_to_num(bg).astype(np.float32),
+        "i_excess": excess,
+        "i_sigma": sigma,
+        "i_scale": scale.astype(np.float32),
+        "i_scale_s": scale_s_profile,
+        "bg_valid": bg_valid,
+        "count_debias_table": debias,
+        "pooled_weight": pooled_weight.astype(np.float32),
+    }
 
 
 # =============================================================================

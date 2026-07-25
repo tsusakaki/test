@@ -33,15 +33,14 @@ def _utc_now() -> str:
 
 
 
+# v8 で i_sigma の正規化 (点数バイアス補正・s方向プール・局所スケール) が
+# 変わったため、v7 以前の Stage1 NPZ は再利用しない。再利用すると改善が
+# 効かないまま古い証拠で走ってしまう。
 _STAGE1_CACHE_COMPATIBLE_VERSIONS = {
-    "5.0.0-production-v5",
-    "6.0.0-production-v6",
-    "7.0.0-production-v7",
+    "8.0.0-production-v8",
 }
 _STAGE2_CACHE_COMPATIBLE_VERSIONS = {
-    "5.0.0-production-v5",
-    "6.0.0-production-v6",
-    "7.0.0-production-v7",
+    "8.0.0-production-v8",
 }
 
 _EXPECTED_SKIP_MESSAGES = {
@@ -323,6 +322,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--surface-band", type=float, default=0.12)
     p.add_argument("--surface-low-k", type=int, default=3)
     p.add_argument("--topk", type=int, default=3)
+    p.add_argument("--no-intensity-count-debias",
+                   dest="intensity_count_debias", action="store_false",
+                   help="セル内点数によるtop-k meanの偏りを補正しない (v7互換)")
+    p.set_defaults(intensity_count_debias=True)
+    p.add_argument("--no-intensity-weighted-background",
+                   dest="intensity_weighted_background", action="store_false",
+                   help="annulus背景をセル平均で取る (v7互換)")
+    p.set_defaults(intensity_weighted_background=True)
+    p.add_argument("--intensity-pool-s", type=float, default=1.25)
+    p.add_argument("--intensity-scale-mode", choices=["local", "row"],
+                   default="local")
+    p.add_argument("--intensity-scale-d", type=float, default=3.0)
+    p.add_argument("--intensity-scale-s", type=float, default=25.0)
     p.add_argument("--frenet-candidates", type=int, default=12)
     p.add_argument("--frenet-z-weight", type=float, default=1.5)
     p.add_argument("--frenet-heading-weight", type=float, default=0.15)
@@ -331,6 +343,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--keep-ambiguous-frenet", action="store_true")
 
     p.add_argument("--sigma-threshold", type=float, default=2.5)
+    p.add_argument("--dash-close-gap", type=float, default=1.25)
+    p.add_argument("--solid-max-run-ratio", type=float, default=0.6)
+    p.add_argument("--dash-regularity", type=float, default=0.6)
+    p.add_argument("--dash-on-min", type=float, default=2.0)
+    p.add_argument("--dash-off-min", type=float, default=2.0)
+    p.add_argument("--rgb-auto-min-coverage", type=float, default=0.75)
+    p.add_argument("--rgb-auto-min-on-length", type=float, default=1.5)
+    p.add_argument("--rgb-scale-mode", choices=["local", "row"],
+                   default="local")
     p.add_argument("--rgb-lane-fusion", choices=["auto", "on", "off"],
                    default="auto")
     p.add_argument("--rgb-auto-min-span-ratio", type=float, default=0.80)
@@ -439,6 +460,12 @@ def main(argv=None) -> int:
             "surface_band": a.surface_band,
             "surface_low_k": a.surface_low_k,
             "topk": a.topk,
+            "intensity_count_debias": a.intensity_count_debias,
+            "intensity_weighted_background": a.intensity_weighted_background,
+            "intensity_pool_s": a.intensity_pool_s,
+            "intensity_scale_mode": a.intensity_scale_mode,
+            "intensity_scale_d": a.intensity_scale_d,
+            "intensity_scale_s": a.intensity_scale_s,
             "frenet_candidates": a.frenet_candidates,
             "frenet_z_weight": a.frenet_z_weight,
             "frenet_heading_weight": a.frenet_heading_weight,
@@ -448,6 +475,14 @@ def main(argv=None) -> int:
         }
         stage2_params = {
             "sigma_threshold": a.sigma_threshold,
+            "dash_close_gap": a.dash_close_gap,
+            "solid_max_run_ratio": a.solid_max_run_ratio,
+            "dash_regularity": a.dash_regularity,
+            "dash_on_min": a.dash_on_min,
+            "dash_off_min": a.dash_off_min,
+            "rgb_auto_min_coverage": a.rgb_auto_min_coverage,
+            "rgb_auto_min_on_length": a.rgb_auto_min_on_length,
+            "rgb_scale_mode": a.rgb_scale_mode,
             "rgb_lane_fusion": a.rgb_lane_fusion,
             "rgb_auto_min_span_ratio": a.rgb_auto_min_span_ratio,
             "rgb_auto_min_tracks_per_100m": a.rgb_auto_min_tracks_per_100m,
@@ -514,6 +549,10 @@ def main(argv=None) -> int:
                      "--surface-band", str(a.surface_band),
                      "--surface-low-k", str(a.surface_low_k),
                      "--topk", str(a.topk),
+                     "--intensity-pool-s", str(a.intensity_pool_s),
+                     "--intensity-scale-mode", a.intensity_scale_mode,
+                     "--intensity-scale-d", str(a.intensity_scale_d),
+                     "--intensity-scale-s", str(a.intensity_scale_s),
                      "--frenet-candidates", str(a.frenet_candidates),
                      "--frenet-z-weight", str(a.frenet_z_weight),
                      "--frenet-heading-weight", str(a.frenet_heading_weight),
@@ -529,6 +568,10 @@ def main(argv=None) -> int:
                 argv1 += ["--pcd-temp-dir", a.pcd_temp_dir]
             if a.keep_ambiguous_frenet:
                 argv1.append("--keep-ambiguous-frenet")
+            if not a.intensity_count_debias:
+                argv1.append("--no-intensity-count-debias")
+            if not a.intensity_weighted_background:
+                argv1.append("--no-intensity-weighted-background")
             if a.z_pcd:
                 argv1 += ["--z-pcd", a.z_pcd]
             if a.rgb_pcd:
@@ -551,6 +594,15 @@ def main(argv=None) -> int:
             state.write(status="RUNNING", stage=2, message="Stage2 linking lines", fraction=0.60)
             argv2 = [str(npz1), "-o", str(npz2),
                      "--sigma-threshold", str(a.sigma_threshold),
+                     "--dash-close-gap", str(a.dash_close_gap),
+                     "--solid-max-run-ratio", str(a.solid_max_run_ratio),
+                     "--dash-regularity", str(a.dash_regularity),
+                     "--dash-on-min", str(a.dash_on_min),
+                     "--dash-off-min", str(a.dash_off_min),
+                     "--rgb-auto-min-coverage", str(a.rgb_auto_min_coverage),
+                     "--rgb-auto-min-on-length",
+                     str(a.rgb_auto_min_on_length),
+                     "--rgb-scale-mode", a.rgb_scale_mode,
                      "--rgb-lane-fusion", a.rgb_lane_fusion,
                      "--rgb-auto-min-span-ratio", str(a.rgb_auto_min_span_ratio),
                      "--rgb-auto-min-tracks-per-100m",

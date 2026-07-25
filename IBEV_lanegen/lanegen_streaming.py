@@ -393,15 +393,26 @@ def build_intensity_streaming(
 
     inner = max(1, int(round(args.bg_inner / args.d_resolution)))
     outer = max(1, int(round(args.bg_outer / args.d_resolution)))
-    i_bg, bg_n = core.annulus_background(i_topk, occupied, inner, outer, axis=0)
-    bg_valid = np.isfinite(i_bg) & (bg_n >= 4) & occupied
-    i_excess = np.where(
-        bg_valid, i_topk - np.nan_to_num(i_bg), 0.0
-    ).astype(np.float32)
-    smooth_cells = max(1, int(round(args.scale_smooth / args.s_resolution)))
-    scale = core.row_robust_scale(i_excess, bg_valid, smooth_cells, args.scale_floor)
-    i_sigma = (i_excess / scale[None, :]).astype(np.float32)
-    i_sigma[~bg_valid] = 0.0
+    evidence = core.build_intensity_sigma(
+        i_topk, count, k_count.reshape(spec.nd, spec.ns),
+        inner_cells=inner, outer_cells=outer,
+        scale_smooth_cells=max(1, int(round(args.scale_smooth
+                                            / args.s_resolution))),
+        scale_floor=args.scale_floor,
+        pool_s_cells=max(1, int(round(getattr(args, "intensity_pool_s", 1.25)
+                                      / args.s_resolution))),
+        count_debias=bool(getattr(args, "intensity_count_debias", True)),
+        weighted_background=bool(getattr(args, "intensity_weighted_background", True)),
+        scale_mode=str(getattr(args, "intensity_scale_mode", "local")),
+        scale_d_cells=max(1, int(round(getattr(args, "intensity_scale_d", 3.0)
+                                       / args.d_resolution))),
+        scale_s_cells=max(1, int(round(getattr(args, "intensity_scale_s", 25.0)
+                                       / args.s_resolution))))
+    i_bg = evidence["i_bg"]
+    i_excess = evidence["i_excess"]
+    i_sigma = evidence["i_sigma"]
+    bg_valid = evidence["bg_valid"]
+    scale = evidence["i_scale_s"]
 
     valid_vals = i_topk[occupied]
     stats = {
@@ -425,17 +436,20 @@ def build_intensity_streaming(
         "scale_median": float(np.median(scale)),
         "sigma_p99": float(np.percentile(i_sigma[bg_valid], 99)) if bg_valid.any() else 0.0,
         "sigma_p999": float(np.percentile(i_sigma[bg_valid], 99.9)) if bg_valid.any() else 0.0,
+        "normalization": evidence["diagnostics"],
         "frenet_projection": totals.as_dict(),
     }
     return ({
         "occupied": occupied,
         "count": count.astype(np.int32),
         "i_topk": i_topk.astype(np.float32),
-        "i_bg": np.nan_to_num(i_bg).astype(np.float32),
+        "i_bg": i_bg,
         "i_excess": i_excess,
         "i_sigma": i_sigma,
+        "i_scale": evidence["i_scale"],
         "i_scale_s": scale.astype(np.float32),
         "bg_valid": bg_valid,
+        "i_count_debias": evidence["count_debias_table"],
         "frenet_ambiguous": ambiguous_count_grid > 0,
         "frenet_ambiguous_count": ambiguous_count_grid.astype(np.int32),
         "_stats": stats,

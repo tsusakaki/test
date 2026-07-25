@@ -16,6 +16,7 @@ import struct
 import subprocess
 import time
 import sys
+import xml.etree.ElementTree as ET
 from types import SimpleNamespace
 
 import numpy as np
@@ -33,6 +34,20 @@ def _sha256(path: Path) -> str:
         for block in iter(lambda: f.read(8 * 1024 * 1024), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def _merge_cvat_xml(main_path: Path, review_path: Path,
+                    dest: Path) -> Path:
+    """本体XMLとreview XMLのshapeを1本にまとめた評価用XMLを書く。"""
+    tree = ET.parse(main_path)
+    root = tree.getroot()
+    image = root.find("image")
+    if image is not None and Path(review_path).exists():
+        for review_image in ET.parse(review_path).getroot().findall("image"):
+            for shape in list(review_image):
+                image.append(shape)
+    tree.write(dest, encoding="utf-8", xml_declaration=True)
+    return dest
 
 
 def _validate_annotator_json(path: Path) -> dict:
@@ -466,14 +481,32 @@ def main(argv=None) -> int:
     )
     _run([py, "lanegen_evaluate.py", str(out / "IBEV.xml"),
           str(synth / "truth_gt.xml"), "-o", str(out / "IBEV_eval.json")], here)
+    # 低信頼のラインは捨てず review XML へ回す設計なので、検出できたか
+    # (recall) は本体 + review の和で測る。本体の純度 (precision) だけを
+    # 本体 XML で測る。
+    detected = _merge_cvat_xml(out / "IBEV.xml", out / "IBEV_review.xml",
+                               out / "IBEV_detected.xml")
+    _run([py, "lanegen_evaluate.py", str(detected),
+          str(synth / "truth_gt.xml"),
+          "-o", str(out / "IBEV_eval_detected.json")], here)
 
     metrics = json.loads((out / "IBEV_eval.json").read_text(encoding="utf-8"))
+    detected_metrics = json.loads(
+        (out / "IBEV_eval_detected.json").read_text(encoding="utf-8"))
     lane = metrics["labels"]["lane_line"]
     curb = metrics["labels"]["curb_boundary"]
-    if lane["recall"] < 0.90 or lane["precision"] < 0.95:
-        raise AssertionError(f"lane回帰失敗: {lane}")
-    if curb["recall"] < 0.80 or curb["precision"] < 0.80:
-        raise AssertionError(f"curb回帰失敗: {curb}")
+    lane_detected = detected_metrics["labels"]["lane_line"]
+    curb_detected = detected_metrics["labels"]["curb_boundary"]
+    if lane_detected["recall"] < 0.90 or lane["precision"] < 0.95:
+        raise AssertionError(
+            f"lane回帰失敗: main={lane} detected={lane_detected}")
+    if curb_detected["recall"] < 0.80 or curb["precision"] < 0.80:
+        raise AssertionError(
+            f"curb回帰失敗: main={curb} detected={curb_detected}")
+    # review が受け皿になりすぎていないかも見る。
+    if lane["recall"] < 0.70:
+        raise AssertionError(
+            f"本体XMLのlane recallが低すぎる (reviewへの流出過多): {lane}")
 
     schema = _validate_annotator_json(out / "IBEV_annotator.json")
     hash_before = {
@@ -523,6 +556,8 @@ def main(argv=None) -> int:
         "polyline_smoothing_test": smoothing_test,
         "lane": lane,
         "curb": curb,
+        "lane_detected": lane_detected,
+        "curb_detected": curb_detected,
         "annotator_schema": schema,
         "deterministic_hashes": hash_after,
     }
