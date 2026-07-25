@@ -823,7 +823,17 @@ def run_streaming(a: argparse.Namespace) -> dict:
             _, gray_ratio = streaming.inspect_rgb(rgb_reader)
         use_rgb = has_rgb and (bool(a.rgb_pcd) or gray_ratio < 0.999)
         if use_rgb:
-            cev = streaming.build_rgb_streaming(rgb_reader, trajectory, a)
+            # Z と RGB が同じ PCD なら、Z 段で求めた路面基準をそのまま
+            # 使って RGB の 1 パス目を省略する。
+            shared_z_base = (
+                ev["z_surface"].reshape(-1)
+                if (rgb_path == z_path
+                    and int(a.surface_low_k) == int(a.z_low_k)
+                    and "z_surface" in ev)
+                else None
+            )
+            cev = streaming.build_rgb_streaming(
+                rgb_reader, trajectory, a, z_base=shared_z_base)
             meta["rgb"] = cev.pop("_stats")
             meta["rgb"]["source"] = str(rgb_path)
             meta["rgb"]["grayscale_ratio"] = float(gray_ratio)

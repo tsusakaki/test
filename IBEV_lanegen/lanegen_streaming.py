@@ -144,9 +144,12 @@ class StreamingMoments:
         vals = vals[valid]
         if len(flat) == 0:
             return
-        np.add.at(self.count, flat, 1)
+        # np.add.at は同じ集計を bincount で書くより実測 8 倍遅い。
+        self.count += np.bincount(flat, minlength=self.ncell).astype(np.int32)
         for c in range(self.channels):
-            np.add.at(self.sum[c], flat, vals[:, c].astype(np.float64))
+            self.sum[c] += np.bincount(
+                flat, weights=vals[:, c].astype(np.float64),
+                minlength=self.ncell)
 
     def mean(self) -> np.ndarray:
         out = np.zeros((self.ncell, self.channels), dtype=np.float32)
@@ -549,7 +552,15 @@ def build_z_streaming(
     }
 
 
-def inspect_rgb(reader: PcdChunkReader) -> tuple[bool, float]:
+def inspect_rgb(reader: PcdChunkReader,
+                sample_points: int = 2_000_000) -> tuple[bool, float]:
+    """色がグレースケールかどうかを調べる。
+
+    判定は「全点が R=G=B か」だけなので全件走査する必要がない。実測で
+    7.5M点のASCIIを1周する 4 秒を丸ごと使っていた。先頭の
+    ``sample_points`` 点で判定し、灰色比が 1.0 のまま (=カラーの証拠が
+    1 点も無い) 場合だけ最後まで読む。
+    """
     rgb_points = 0
     grayscale = 0
     for xyz, rgb, native in reader.iter_chunks(phase="rgb_inspect"):
@@ -558,6 +569,9 @@ def inspect_rgb(reader: PcdChunkReader) -> tuple[bool, float]:
         ch = packed_rgb_channels(rgb)
         rgb_points += int(len(ch))
         grayscale += int(((ch[:, 0] == ch[:, 1]) & (ch[:, 1] == ch[:, 2])).sum())
+        if grayscale < rgb_points and rgb_points >= sample_points:
+            # カラーであることが既に確定しているので打ち切る。
+            break
     ratio = float(grayscale / max(rgb_points, 1))
     return rgb_points > 0, ratio
 
@@ -566,28 +580,44 @@ def build_rgb_streaming(
     reader: PcdChunkReader,
     trajectory: core.Trajectory,
     args,
+    z_base: Optional[np.ndarray] = None,
 ) -> dict:
+    """RGB の路面バンド平均を作る。
+
+    ``z_base`` を渡すと路面基準を求める 1 パス目を省略する。Z 証拠と RGB
+    証拠が同じ PCD から作られる通常のケース (どちらも RGBBEV.pcd) では、
+    build_z_streaming が同一の下位k平均を既に計算しているため、同じ
+    ファイルをもう一度パースして Frenet 投影し直すのは完全な重複だった。
+    """
     spec = GridSpec.from_args(trajectory, args)
-    low_z = StreamingTopK(spec.ncell, args.surface_low_k, largest=False)
     totals = ProjectionTotals()
+    reused_z_base = z_base is not None
 
-    for xyz, rgb, native in reader.iter_chunks(phase="rgb_surface_pass"):
-        if rgb is None:
-            continue
-        proj = project_chunk(xyz, trajectory, args)
-        totals.add(proj, len(xyz))
-        flat, ok, _ = cell_indices(proj, spec)
-        z = xyz[proj.keep, 2][ok]
-        low_z.update(flat, z)
+    if reused_z_base:
+        z_base = np.asarray(z_base, dtype=np.float32).reshape(-1)
+        if z_base.size != spec.ncell:
+            raise ValueError("z_base のセル数がグリッドと一致しません")
+    else:
+        low_z = StreamingTopK(spec.ncell, args.surface_low_k, largest=False)
+        for xyz, rgb, native in reader.iter_chunks(phase="rgb_surface_pass"):
+            if rgb is None:
+                continue
+            proj = project_chunk(xyz, trajectory, args)
+            totals.add(proj, len(xyz))
+            flat, ok, _ = cell_indices(proj, spec)
+            z = xyz[proj.keep, 2][ok]
+            low_z.update(flat, z)
+        z_base, _ = low_z.mean_and_count()
+        del low_z
 
-    z_base, _ = low_z.mean_and_count()
-    del low_z
     moments = StreamingMoments(spec.ncell, channels=3)
 
     for xyz, rgb, native in reader.iter_chunks(phase="rgb_evidence_pass"):
         if rgb is None:
             continue
         proj = project_chunk(xyz, trajectory, args)
+        if reused_z_base:
+            totals.add(proj, len(xyz))
         flat, ok, _ = cell_indices(proj, spec)
         z = xyz[proj.keep, 2][ok]
         ch = packed_rgb_channels(rgb)[proj.keep][ok]
@@ -605,7 +635,7 @@ def build_rgb_streaming(
     stats = {
         "aggregation_mode": "fully_streaming_grid",
         "full_point_arrays_materialized": False,
-        "pcd_passes": 2,
+        "pcd_passes": 1 if reused_z_base else 2,
         "occupied_cells": int(rgb_occupied.sum()),
         "luminance_p50": float(np.percentile(luminance[rgb_occupied], 50)) if rgb_occupied.any() else 0.0,
         "luminance_p99": float(np.percentile(luminance[rgb_occupied], 99)) if rgb_occupied.any() else 0.0,

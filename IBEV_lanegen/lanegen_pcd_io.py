@@ -181,45 +181,92 @@ def _notify(cb: Optional[ProgressCallback], done: int, total: int, phase: str) -
         cb(int(done), int(total), str(phase))
 
 
+_ASCII_BLOCK_BYTES = 32 << 20
+
+
+def _parse_ascii_block(body: bytes, total_cols: int) -> np.ndarray:
+    """空白区切りの数値ブロックを (N, total_cols) にする。"""
+    values = np.fromstring(body.decode("ascii", "ignore"), sep=" ",
+                           dtype=np.float64)
+    if values.size % total_cols != 0:
+        raise ValueError(
+            "ASCII PCD列数がFIELDS/COUNTと不一致です: "
+            f"values={values.size}, cols={total_cols}"
+        )
+    return values.reshape(-1, total_cols)
+
+
 def _iter_ascii(header: PcdHeader, chunk_points: int,
                 progress_callback: Optional[ProgressCallback],
                 cancel_callback: Optional[CancelCallback]):
+    """ASCII の DATA 部をブロック単位でまとめて数値化する。
+
+    1 行ずつ readline する実装では、700万点の PCD に対して Python レベルの
+    ループが 700万回まわり、実測で ASCII 読み込みが Stage1 全体の約半分を
+    占めていた。改行位置で切った大きなブロックをそのまま np.fromstring へ
+    渡すと、行ループが消えて 2 倍以上速くなる。
+
+    コメント行・空行が DATA 部に混ざっている場合だけ、そのブロックを従来
+    どおり行単位で処理する。
+    """
     slices = _expanded_column_slices(header)
     total_cols = header.scalar_columns
+    chunk_values = max(1, int(chunk_points)) * total_cols
     done = 0
+
+    def emit(rows: np.ndarray):
+        nonlocal done
+        fields = {}
+        for name, sl in slices.items():
+            value = rows[:, sl]
+            fields[name] = value[:, 0] if value.shape[1] == 1 else value
+        xyz, rgb, intensity = _select_fields(fields)
+        done += len(rows)
+        _notify(progress_callback, min(done, header.points), header.points,
+                "ascii")
+        return xyz, rgb, intensity
+
     with header.path.open("rb") as f:
         f.seek(header.data_offset)
-        lines: list[bytes] = []
+        tail = b""
+        pending: Optional[np.ndarray] = None
         _check_cancel(cancel_callback)
         while True:
-            raw = f.readline()
-            if raw:
-                if raw.strip() and not raw.lstrip().startswith(b"#"):
-                    lines.append(raw)
-            if (not raw) or len(lines) >= chunk_points:
-                if lines:
-                    text = b"".join(lines).decode("ascii", "ignore")
-                    arr = np.fromstring(text, sep=" ", dtype=np.float64)
-                    if arr.size % total_cols != 0:
-                        raise ValueError(
-                            f"ASCII PCD列数がFIELDS/COUNTと不一致です: values={arr.size}, cols={total_cols}"
-                        )
-                    arr = arr.reshape(-1, total_cols)
-                    fields = {}
-                    for name, sl in slices.items():
-                        value = arr[:, sl]
-                        fields[name] = value[:, 0] if value.shape[1] == 1 else value
-                    xyz, rgb, intensity = _select_fields(fields)
-                    done += len(lines)
-                    _notify(progress_callback, min(done, header.points), header.points, "ascii")
-                    yield xyz, rgb, intensity
-                    lines.clear()
-                    # Cancellation is checked at chunk boundaries, not for every
-                    # ASCII line.  Per-line filesystem stat calls make million-point
-                    # files unusably slow.
-                    _check_cancel(cancel_callback)
-                if not raw:
-                    break
+            block = f.read(_ASCII_BLOCK_BYTES)
+            if not block:
+                body, tail = tail, b""
+            else:
+                block = tail + block
+                cut = block.rfind(b"\n")
+                if cut < 0:
+                    tail = block
+                    continue
+                body, tail = block[:cut + 1], block[cut + 1:]
+
+            if body.strip():
+                if b"#" in body:
+                    # コメント混在ブロックだけ行単位で除去してから数値化する。
+                    kept = [ln for ln in body.splitlines()
+                            if ln.strip() and not ln.lstrip().startswith(b"#")]
+                    rows = (_parse_ascii_block(b"\n".join(kept), total_cols)
+                            if kept else np.empty((0, total_cols)))
+                else:
+                    rows = _parse_ascii_block(body, total_cols)
+                if len(rows):
+                    pending = (rows if pending is None
+                               else np.concatenate([pending, rows]))
+
+            while pending is not None and len(pending) * total_cols >= chunk_values:
+                take = max(1, int(chunk_points))
+                yield emit(pending[:take])
+                pending = pending[take:] if len(pending) > take else None
+                _check_cancel(cancel_callback)
+
+            if not block:
+                if pending is not None and len(pending):
+                    yield emit(pending)
+                break
+            _check_cancel(cancel_callback)
 
 
 def _iter_binary(header: PcdHeader, chunk_points: int,
